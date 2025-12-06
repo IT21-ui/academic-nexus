@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Subjects from "./pages/student/Subjects";
 import Grades from "./pages/student/Grades";
@@ -31,6 +32,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             
             <Route element={<DashboardLayout />}>
@@ -49,6 +51,7 @@ const App = () => (
               
               {/* Admin Routes */}
               <Route path="/users" element={<UserManagement />} />
+              <Route path="/subject-management" element={<SubjectManagement />} />
               <Route path="/teachers" element={<TeacherManagement />} />
               <Route path="/departments" element={<DepartmentManagement />} />
               <Route path="/schedules" element={<Schedule />} />

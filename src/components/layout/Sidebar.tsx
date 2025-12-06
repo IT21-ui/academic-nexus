@@ -44,7 +44,7 @@ const instructorLinks = [
 const adminLinks = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/users', icon: Users, label: 'User Management' },
-  { to: '/subjects', icon: BookOpen, label: 'Subjects' },
+  { to: '/subject-management', icon: BookOpen, label: 'Subjects' },
   { to: '/teachers', icon: GraduationCap, label: 'Teachers' },
   { to: '/departments', icon: Building, label: 'Departments' },
   { to: '/schedules', icon: Calendar, label: 'Schedules' },
