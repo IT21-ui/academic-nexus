@@ -2,13 +2,15 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockSubjects, mockStudents } from '@/data/mockData';
+import { mockSections, mockStudents, getTeacherFullName } from '@/data/mockData';
 import { Users, Clock, MapPin, FileSpreadsheet, ClipboardCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const MyClasses: React.FC = () => {
   const navigate = useNavigate();
-  const myClasses = mockSubjects.slice(0, 2);
+  
+  // Get sections assigned to instructor 1
+  const mySections = mockSections.filter(s => s.teacher_id === 1).slice(0, 2);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -18,17 +20,17 @@ const MyClasses: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {myClasses.map((cls) => (
-          <Card key={cls.id} className="hover:shadow-soft transition-shadow">
+        {mySections.map((section) => (
+          <Card key={section.id} className="hover:shadow-soft transition-shadow">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
-                  <Badge variant="secondary" className="mb-2">{cls.code}</Badge>
-                  <CardTitle>{cls.name}</CardTitle>
+                  <Badge variant="secondary" className="mb-2">{section.subject?.code}</Badge>
+                  <CardTitle>{section.subject?.name}</CardTitle>
                 </div>
                 <span className="flex items-center gap-1 text-sm bg-primary/10 text-primary px-3 py-1 rounded-full">
                   <Users className="w-4 h-4" />
-                  {mockStudents.length} students
+                  {section.student_count || 0} students
                 </span>
               </div>
             </CardHeader>
@@ -36,11 +38,11 @@ const MyClasses: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="w-4 h-4" />
-                  <span>{cls.schedule}</span>
+                  <span>{section.schedule_day} {section.schedule_time}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="w-4 h-4" />
-                  <span>{cls.room}</span>
+                  <span>{section.room}</span>
                 </div>
               </div>
               

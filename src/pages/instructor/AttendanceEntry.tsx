@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockStudents, mockSubjects } from '@/data/mockData';
+import { mockStudents, mockSections, getStudentFullName } from '@/data/mockData';
 import { Save, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -12,11 +12,14 @@ type AttendanceStatus = 'present' | 'absent' | 'late';
 
 const AttendanceEntry: React.FC = () => {
   const { toast } = useToast();
-  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0].code);
+  
+  // Get sections assigned to instructor 1
+  const mySections = mockSections.filter(s => s.teacher_id === 1);
+  const [selectedSectionId, setSelectedSectionId] = useState(mySections[0]?.id.toString() || '');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [attendance, setAttendance] = useState<Record<number, AttendanceStatus>>({});
 
-  const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
+  const handleStatusChange = (studentId: number, status: AttendanceStatus) => {
     setAttendance(prev => ({
       ...prev,
       [studentId]: status,
@@ -30,7 +33,7 @@ const AttendanceEntry: React.FC = () => {
     });
   };
 
-  const getStatusButton = (studentId: string, status: AttendanceStatus, icon: React.ElementType, label: string) => {
+  const getStatusButton = (studentId: number, status: AttendanceStatus, icon: React.ElementType, label: string) => {
     const Icon = icon;
     const isSelected = attendance[studentId] === status;
     
@@ -69,14 +72,14 @@ const AttendanceEntry: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Mark Attendance</CardTitle>
           <div className="flex items-center gap-4">
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+            <Select value={selectedSectionId} onValueChange={setSelectedSectionId}>
               <SelectTrigger className="w-64">
-                <SelectValue placeholder="Select subject" />
+                <SelectValue placeholder="Select class" />
               </SelectTrigger>
               <SelectContent>
-                {mockSubjects.slice(0, 2).map((subject) => (
-                  <SelectItem key={subject.code} value={subject.code}>
-                    {subject.code} - {subject.name}
+                {mySections.map((section) => (
+                  <SelectItem key={section.id} value={section.id.toString()}>
+                    {section.subject?.code} - {section.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -104,8 +107,8 @@ const AttendanceEntry: React.FC = () => {
             <TableBody>
               {mockStudents.map((student) => (
                 <TableRow key={student.id}>
-                  <TableCell className="font-medium">{student.id}</TableCell>
-                  <TableCell>{student.name}</TableCell>
+                  <TableCell className="font-medium">{student.student_id}</TableCell>
+                  <TableCell>{getStudentFullName(student)}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-2">
                       {getStatusButton(student.id, 'present', CheckCircle, 'Present')}
