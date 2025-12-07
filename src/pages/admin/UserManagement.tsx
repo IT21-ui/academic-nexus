@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockStudents, mockInstructors, mockPendingUsers } from '@/data/mockData';
+import { mockStudents, mockInstructors, mockPendingRegistrations, getStudentFullName } from '@/data/mockData';
 import { Search, UserPlus, Check, X, Trash2, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,14 +13,14 @@ const UserManagement: React.FC = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const handleApprove = (id: string) => {
+  const handleApprove = (id: number) => {
     toast({
       title: 'User Approved',
       description: `User ${id} has been approved successfully.`,
     });
   };
 
-  const handleDeny = (id: string) => {
+  const handleDeny = (id: number) => {
     toast({
       title: 'User Denied',
       description: `User ${id} has been denied.`,
@@ -43,7 +43,7 @@ const UserManagement: React.FC = () => {
 
       <Tabs defaultValue="pending" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="pending">Pending ({mockPendingUsers.length})</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({mockPendingRegistrations.length})</TabsTrigger>
           <TabsTrigger value="students">Students</TabsTrigger>
           <TabsTrigger value="instructors">Instructors</TabsTrigger>
         </TabsList>
@@ -55,18 +55,18 @@ const UserManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockPendingUsers.map((user) => (
+                {mockPendingRegistrations.map((user) => (
                   <div
                     key={user.id}
                     className="flex items-center justify-between p-4 rounded-lg border border-border"
                   >
                     <div>
-                      <p className="font-medium text-foreground">{user.name}</p>
+                      <p className="font-medium text-foreground">{user.first_name} {user.last_name}</p>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge variant="outline" className="capitalize">{user.role}</Badge>
                         <span className="text-xs text-muted-foreground">
-                          Requested: {user.requestDate}
+                          Requested: {user.request_date}
                         </span>
                       </div>
                     </div>
@@ -125,11 +125,11 @@ const UserManagement: React.FC = () => {
                 <TableBody>
                   {mockStudents.map((student) => (
                     <TableRow key={student.id}>
-                      <TableCell className="font-medium">{student.id}</TableCell>
-                      <TableCell>{student.name}</TableCell>
+                      <TableCell className="font-medium">{student.student_id}</TableCell>
+                      <TableCell>{getStudentFullName(student)}</TableCell>
                       <TableCell>{student.email}</TableCell>
-                      <TableCell>{student.department}</TableCell>
-                      <TableCell>{student.yearLevel}</TableCell>
+                      <TableCell>{student.department?.name || ''}</TableCell>
+                      <TableCell>{student.year_level?.name || ''}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button size="icon" variant="ghost">

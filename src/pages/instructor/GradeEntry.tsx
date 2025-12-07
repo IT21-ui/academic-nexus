@@ -4,16 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockStudents, mockSubjects } from '@/data/mockData';
+import { mockStudents, mockSections, getStudentFullName } from '@/data/mockData';
 import { Save, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const GradeEntry: React.FC = () => {
   const { toast } = useToast();
-  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0].code);
-  const [grades, setGrades] = useState<Record<string, { midterm: string; finals: string }>>({});
+  
+  // Get sections assigned to instructor 1
+  const mySections = mockSections.filter(s => s.teacher_id === 1);
+  const [selectedSectionId, setSelectedSectionId] = useState(mySections[0]?.id.toString() || '');
+  const [grades, setGrades] = useState<Record<number, { midterm: string; finals: string }>>({});
 
-  const handleGradeChange = (studentId: string, field: 'midterm' | 'finals', value: string) => {
+  const handleGradeChange = (studentId: number, field: 'midterm' | 'finals', value: string) => {
     setGrades(prev => ({
       ...prev,
       [studentId]: {
@@ -29,6 +32,8 @@ const GradeEntry: React.FC = () => {
       description: 'All grades have been saved successfully.',
     });
   };
+
+  const selectedSection = mySections.find(s => s.id.toString() === selectedSectionId);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -47,14 +52,14 @@ const GradeEntry: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Student Grades</CardTitle>
           <div className="flex items-center gap-4">
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+            <Select value={selectedSectionId} onValueChange={setSelectedSectionId}>
               <SelectTrigger className="w-64">
-                <SelectValue placeholder="Select subject" />
+                <SelectValue placeholder="Select class" />
               </SelectTrigger>
               <SelectContent>
-                {mockSubjects.slice(0, 2).map((subject) => (
-                  <SelectItem key={subject.code} value={subject.code}>
-                    {subject.code} - {subject.name}
+                {mySections.map((section) => (
+                  <SelectItem key={section.id} value={section.id.toString()}>
+                    {section.subject?.code} - {section.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -85,8 +90,8 @@ const GradeEntry: React.FC = () => {
 
                 return (
                   <TableRow key={student.id}>
-                    <TableCell className="font-medium">{student.id}</TableCell>
-                    <TableCell>{student.name}</TableCell>
+                    <TableCell className="font-medium">{student.student_id}</TableCell>
+                    <TableCell>{getStudentFullName(student)}</TableCell>
                     <TableCell>
                       <Input
                         type="number"

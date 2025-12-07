@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockGrades } from '@/data/mockData';
+import { mockGrades, mockSections, getSubjectById } from '@/data/mockData';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,9 +21,23 @@ const Grades: React.FC = () => {
     return { label: 'Needs Improvement', variant: 'destructive' };
   };
 
-  const averageGrade = Math.round(
-    mockGrades.reduce((acc, g) => acc + g.finalGrade, 0) / mockGrades.length
-  );
+  // Filter grades for student 1 and calculate average
+  const studentGrades = mockGrades.filter(g => g.student_id === 1);
+  const averageGrade = studentGrades.length > 0
+    ? Math.round(studentGrades.reduce((acc, g) => acc + (g.final_grade || 0), 0) / studentGrades.length)
+    : 0;
+
+  // Get subject info from section
+  const getGradeSubjectInfo = (sectionId: number) => {
+    const section = mockSections.find(s => s.id === sectionId);
+    if (section && section.subject) {
+      return {
+        code: section.subject.code,
+        name: section.subject.name,
+      };
+    }
+    return { code: 'N/A', name: 'Unknown Subject' };
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -46,7 +60,7 @@ const Grades: React.FC = () => {
         <Card>
           <CardContent className="p-6">
             <p className="text-sm font-medium text-muted-foreground">Total Subjects</p>
-            <p className="text-3xl font-bold text-foreground mt-2">{mockGrades.length}</p>
+            <p className="text-3xl font-bold text-foreground mt-2">{studentGrades.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -75,22 +89,26 @@ const Grades: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockGrades.map((grade, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{grade.subjectCode}</TableCell>
-                  <TableCell>{grade.subjectName}</TableCell>
-                  <TableCell className="text-center">{grade.midterm}</TableCell>
-                  <TableCell className="text-center">{grade.finals}</TableCell>
-                  <TableCell className={cn('text-center font-bold', getGradeColor(grade.finalGrade))}>
-                    {grade.finalGrade}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={getGradeBadge(grade.finalGrade).variant}>
-                      {grade.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {studentGrades.map((grade) => {
+                const subjectInfo = getGradeSubjectInfo(grade.section_id);
+                const finalGrade = grade.final_grade || 0;
+                return (
+                  <TableRow key={grade.id}>
+                    <TableCell className="font-medium">{subjectInfo.code}</TableCell>
+                    <TableCell>{subjectInfo.name}</TableCell>
+                    <TableCell className="text-center">{grade.midterm || '-'}</TableCell>
+                    <TableCell className="text-center">{grade.finals || '-'}</TableCell>
+                    <TableCell className={cn('text-center font-bold', getGradeColor(finalGrade))}>
+                      {finalGrade}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={getGradeBadge(finalGrade).variant}>
+                        {grade.remarks || grade.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

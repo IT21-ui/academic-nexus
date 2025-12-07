@@ -2,10 +2,19 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockDepartments } from '@/data/mockData';
+import { mockDepartments, mockTeachers, getTeacherFullName } from '@/data/mockData';
 import { Plus, Edit, Users, GraduationCap, Building } from 'lucide-react';
 
 const DepartmentManagement: React.FC = () => {
+  // Find department head name
+  const getDepartmentHeadName = (dept: typeof mockDepartments[0]) => {
+    if (dept.head_id) {
+      const head = mockTeachers.find(t => t.id === dept.head_id);
+      return head ? getTeacherFullName(head) : 'Not Assigned';
+    }
+    return 'Not Assigned';
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -38,7 +47,7 @@ const DepartmentManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Department Head: <span className="text-foreground font-medium">{dept.head}</span>
+                Department Head: <span className="text-foreground font-medium">{getDepartmentHeadName(dept)}</span>
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 rounded-lg bg-muted/50">
@@ -46,14 +55,14 @@ const DepartmentManagement: React.FC = () => {
                     <Users className="w-4 h-4 text-primary" />
                     <span className="text-sm text-muted-foreground">Students</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{dept.students}</p>
+                  <p className="text-2xl font-bold text-foreground">{dept.students_count || 0}</p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-2">
                     <GraduationCap className="w-4 h-4 text-secondary" />
                     <span className="text-sm text-muted-foreground">Instructors</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{dept.instructors}</p>
+                  <p className="text-2xl font-bold text-foreground">{dept.teachers_count || 0}</p>
                 </div>
               </div>
             </CardContent>

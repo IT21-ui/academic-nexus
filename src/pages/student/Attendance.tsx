@@ -2,24 +2,27 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockAttendance, mockSubjects } from '@/data/mockData';
+import { mockAttendance, mockSections, getSubjectById } from '@/data/mockData';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Attendance: React.FC = () => {
-  const presentCount = mockAttendance.filter(a => a.status === 'Present').length;
-  const absentCount = mockAttendance.filter(a => a.status === 'Absent').length;
-  const lateCount = mockAttendance.filter(a => a.status === 'Late').length;
-  const totalCount = mockAttendance.length;
-  const attendanceRate = Math.round((presentCount / totalCount) * 100);
+  // Filter attendance for student 1
+  const studentAttendance = mockAttendance.filter(a => a.student_id === 1);
+  
+  const presentCount = studentAttendance.filter(a => a.status === 'present').length;
+  const absentCount = studentAttendance.filter(a => a.status === 'absent').length;
+  const lateCount = studentAttendance.filter(a => a.status === 'late').length;
+  const totalCount = studentAttendance.length;
+  const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Present':
+      case 'present':
         return <CheckCircle className="w-4 h-4 text-success" />;
-      case 'Absent':
+      case 'absent':
         return <XCircle className="w-4 h-4 text-destructive" />;
-      case 'Late':
+      case 'late':
         return <Clock className="w-4 h-4 text-warning" />;
       default:
         return null;
@@ -28,19 +31,27 @@ const Attendance: React.FC = () => {
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'Present':
+      case 'present':
         return 'default';
-      case 'Absent':
+      case 'absent':
         return 'destructive';
-      case 'Late':
+      case 'late':
         return 'secondary';
       default:
         return 'default';
     }
   };
 
-  const getSubjectName = (code: string) => {
-    return mockSubjects.find(s => s.code === code)?.name || code;
+  // Get subject info from section
+  const getAttendanceSubjectInfo = (sectionId: number) => {
+    const section = mockSections.find(s => s.id === sectionId);
+    if (section && section.subject) {
+      return {
+        code: section.subject.code,
+        name: section.subject.name,
+      };
+    }
+    return { code: 'N/A', name: 'Unknown Subject' };
   };
 
   return (
@@ -97,27 +108,30 @@ const Attendance: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockAttendance.map((record, index) => (
-                <TableRow key={index}>
-                  <TableCell>{record.date}</TableCell>
-                  <TableCell className="font-medium">{record.subject}</TableCell>
-                  <TableCell>{getSubjectName(record.subject)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-center gap-2">
-                      {getStatusIcon(record.status)}
-                      <Badge
-                        variant={getStatusBadgeVariant(record.status)}
-                        className={cn(
-                          record.status === 'Present' && 'bg-success text-success-foreground',
-                          record.status === 'Late' && 'bg-warning text-warning-foreground'
-                        )}
-                      >
-                        {record.status}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {studentAttendance.map((record) => {
+                const subjectInfo = getAttendanceSubjectInfo(record.section_id);
+                return (
+                  <TableRow key={record.id}>
+                    <TableCell>{record.date}</TableCell>
+                    <TableCell className="font-medium">{subjectInfo.code}</TableCell>
+                    <TableCell>{subjectInfo.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-2">
+                        {getStatusIcon(record.status)}
+                        <Badge
+                          variant={getStatusBadgeVariant(record.status)}
+                          className={cn(
+                            record.status === 'present' && 'bg-success text-success-foreground',
+                            record.status === 'late' && 'bg-warning text-warning-foreground'
+                          )}
+                        >
+                          {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

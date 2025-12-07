@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { mockStudents, mockSubjects } from '@/data/mockData';
+import { mockStudents, mockSections, getTeacherFullName } from '@/data/mockData';
 import { BookOpen, Users, FileSpreadsheet, ClipboardCheck, Calendar, GraduationCap } from 'lucide-react';
 
 const InstructorDashboard: React.FC = () => {
@@ -18,7 +18,8 @@ const InstructorDashboard: React.FC = () => {
     { icon: Calendar, label: 'Schedule', onClick: () => navigate('/schedule') },
   ];
 
-  const myClasses = mockSubjects.slice(0, 2);
+  // Get sections assigned to instructor 1
+  const mySections = mockSections.filter(s => s.teacher_id === 1).slice(0, 2);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -42,7 +43,7 @@ const InstructorDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Assigned Classes"
-          value={2}
+          value={mySections.length}
           icon={BookOpen}
           variant="primary"
         />
@@ -73,20 +74,24 @@ const InstructorDashboard: React.FC = () => {
               <CardTitle className="text-lg">My Classes</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {myClasses.map((cls) => (
+              {mySections.map((section) => (
                 <div
-                  key={cls.id}
+                  key={section.id}
                   className="p-4 rounded-lg border border-border hover:border-primary/30 transition-colors cursor-pointer"
                   onClick={() => navigate('/my-classes')}
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-semibold text-foreground">{cls.code} - {cls.name}</h4>
-                      <p className="text-sm text-muted-foreground mt-1">{cls.schedule}</p>
-                      <p className="text-sm text-muted-foreground">{cls.room}</p>
+                      <h4 className="font-semibold text-foreground">
+                        {section.subject?.code} - {section.subject?.name}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {section.schedule_day} {section.schedule_time}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{section.room}</p>
                     </div>
                     <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                      {mockStudents.length} students
+                      {section.student_count || 0} students
                     </span>
                   </div>
                 </div>

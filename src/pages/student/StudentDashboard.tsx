@@ -6,7 +6,7 @@ import { UpcomingClasses } from '@/components/dashboard/UpcomingClasses';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentGrades } from '@/components/dashboard/RecentGrades';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { mockSubjects, mockGrades, mockSchedule, mockAttendance } from '@/data/mockData';
+import { mockSubjects, mockGrades, mockSchedule, mockAttendance, mockSections, getSubjectById } from '@/data/mockData';
 import { BookOpen, Calendar, ClipboardCheck, TrendingUp, FileSpreadsheet, GraduationCap } from 'lucide-react';
 
 const StudentDashboard: React.FC = () => {
@@ -18,13 +18,17 @@ const StudentDashboard: React.FC = () => {
     isNext: i === 0,
   })) || [];
 
-  const presentCount = mockAttendance.filter(a => a.status === 'Present').length;
-  const totalAttendance = mockAttendance.length;
-  const attendanceRate = Math.round((presentCount / totalAttendance) * 100);
+  // Filter attendance for student 1
+  const studentAttendance = mockAttendance.filter(a => a.student_id === 1);
+  const presentCount = studentAttendance.filter(a => a.status === 'present').length;
+  const totalAttendance = studentAttendance.length;
+  const attendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0;
 
-  const averageGrade = Math.round(
-    mockGrades.reduce((acc, g) => acc + g.finalGrade, 0) / mockGrades.length
-  );
+  // Filter grades for student 1
+  const studentGrades = mockGrades.filter(g => g.student_id === 1);
+  const averageGrade = studentGrades.length > 0
+    ? Math.round(studentGrades.reduce((acc, g) => acc + (g.final_grade || 0), 0) / studentGrades.length)
+    : 0;
 
   const quickActions = [
     { icon: FileSpreadsheet, label: 'View Grades', onClick: () => navigate('/grades') },
@@ -33,9 +37,18 @@ const StudentDashboard: React.FC = () => {
     { icon: BookOpen, label: 'Subjects', onClick: () => navigate('/subjects') },
   ];
 
-  const recentGrades = mockGrades.slice(0, 4).map(g => ({
-    subject: g.subjectName,
-    grade: g.finalGrade,
+  // Get subject info from section for recent grades
+  const getGradeSubjectInfo = (sectionId: number) => {
+    const section = mockSections.find(s => s.id === sectionId);
+    if (section && section.subject) {
+      return section.subject.name;
+    }
+    return 'Unknown Subject';
+  };
+
+  const recentGrades = studentGrades.slice(0, 4).map(g => ({
+    subject: getGradeSubjectInfo(g.section_id),
+    grade: g.final_grade || 0,
     status: g.status,
   }));
 
