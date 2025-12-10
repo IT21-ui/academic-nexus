@@ -1,8 +1,8 @@
-import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import StudentDashboard from './student/StudentDashboard';
-import InstructorDashboard from './instructor/InstructorDashboard';
-import AdminDashboard from './admin/AdminDashboard';
+import React from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import StudentDashboard from "./student/StudentDashboard";
+import InstructorDashboard from "./instructor/InstructorDashboard";
+import AdminDashboard from "./admin/AdminDashboard";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -10,11 +10,11 @@ const Dashboard: React.FC = () => {
   if (!user) return null;
 
   switch (user.role) {
-    case 'student':
+    case "student":
       return <StudentDashboard />;
-    case 'instructor':
+    case "instructor":
       return <InstructorDashboard />;
-    case 'admin':
+    case "administrator":
       return <AdminDashboard />;
     default:
       return <StudentDashboard />;

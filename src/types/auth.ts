@@ -1,19 +1,11 @@
-export type UserRole = 'student' | 'instructor' | 'admin';
+import { User } from "./models";
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar?: string;
-  department?: string;
-  studentId?: string;
-  instructorId?: string;
-}
+export type UserRole = "student" | "instructor" | "admin";
 
 export interface AuthContextType {
   user: User | null;
-  login: (id: string, password: string, role: UserRole) => Promise<boolean>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<any>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
+  loading: boolean;
 }

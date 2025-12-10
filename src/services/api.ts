@@ -15,10 +15,10 @@ import type {
   LoginResponse,
   ApiResponse,
   PaginatedResponse,
-} from '@/types/models';
+} from "@/types/models";
 
 // Base API URL - will be replaced with actual backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 // Helper function for API calls
 async function apiCall<T>(
@@ -26,24 +26,24 @@ async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
-    const token = localStorage.getItem('auth_token');
-    
+    const token = localStorage.getItem("auth_token");
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        "Content-Type": "application/json",
+        Accept: "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
-        message: data.message || 'An error occurred',
+        message: data.message || "An error occurred",
         errors: data.errors,
       };
     }
@@ -53,10 +53,10 @@ async function apiCall<T>(
       data: data.data || data,
     };
   } catch (error) {
-    console.error('API Error:', error);
+    console.error("API Error:", error);
     return {
       success: false,
-      message: 'Network error. Please try again.',
+      message: "Network error. Please try again.",
     };
   }
 }
@@ -64,66 +64,70 @@ async function apiCall<T>(
 // ============ Authentication API ============
 
 export const authApi = {
-  login: async (credentials: LoginCredentials): Promise<ApiResponse<LoginResponse>> => {
-    return apiCall<LoginResponse>('/auth/login', {
-      method: 'POST',
+  login: async (
+    credentials: LoginCredentials
+  ): Promise<ApiResponse<LoginResponse>> => {
+    return apiCall<LoginResponse>("/auth/login", {
+      method: "POST",
       body: JSON.stringify(credentials),
     });
   },
 
   logout: async (): Promise<ApiResponse<void>> => {
-    const result = await apiCall<void>('/auth/logout', { method: 'POST' });
-    localStorage.removeItem('auth_token');
+    const result = await apiCall<void>("/auth/logout", { method: "POST" });
+    localStorage.removeItem("auth_token");
     return result;
   },
 
-  register: async (data: Partial<RegistrationRequest>): Promise<ApiResponse<RegistrationRequest>> => {
-    return apiCall<RegistrationRequest>('/auth/register', {
-      method: 'POST',
+  register: async (
+    data: Partial<RegistrationRequest>
+  ): Promise<ApiResponse<RegistrationRequest>> => {
+    return apiCall<RegistrationRequest>("/auth/register", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },
 
   getCurrentUser: async () => {
-    return apiCall('/auth/user');
+    return apiCall("/auth/user");
   },
 };
 
-// ============ Department API ============
+// // ============ Department API ============
 
-export const departmentApi = {
-  getAll: async (): Promise<ApiResponse<Department[]>> => {
-    return apiCall<Department[]>('/departments');
-  },
+// export const departmentApi = {
+//   getAll: async (): Promise<ApiResponse<Department[]>> => {
+//     return apiCall<Department[]>('/departments');
+//   },
 
-  getById: async (id: number): Promise<ApiResponse<Department>> => {
-    return apiCall<Department>(`/departments/${id}`);
-  },
+//   getById: async (id: number): Promise<ApiResponse<Department>> => {
+//     return apiCall<Department>(`/departments/${id}`);
+//   },
 
-  create: async (data: Partial<Department>): Promise<ApiResponse<Department>> => {
-    return apiCall<Department>('/departments', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
+//   create: async (data: Partial<Department>): Promise<ApiResponse<Department>> => {
+//     return apiCall<Department>('/departments', {
+//       method: 'POST',
+//       body: JSON.stringify(data),
+//     });
+//   },
 
-  update: async (id: number, data: Partial<Department>): Promise<ApiResponse<Department>> => {
-    return apiCall<Department>(`/departments/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  },
+//   update: async (id: number, data: Partial<Department>): Promise<ApiResponse<Department>> => {
+//     return apiCall<Department>(`/departments/${id}`, {
+//       method: 'PUT',
+//       body: JSON.stringify(data),
+//     });
+//   },
 
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/departments/${id}`, { method: 'DELETE' });
-  },
-};
+//   delete: async (id: number): Promise<ApiResponse<void>> => {
+//     return apiCall<void>(`/departments/${id}`, { method: 'DELETE' });
+//   },
+// };
 
 // ============ Year Level API ============
 
 export const yearLevelApi = {
   getAll: async (): Promise<ApiResponse<YearLevel[]>> => {
-    return apiCall<YearLevel[]>('/year-levels');
+    return apiCall<YearLevel[]>("/year-levels");
   },
 
   getById: async (id: number): Promise<ApiResponse<YearLevel>> => {
@@ -131,108 +135,117 @@ export const yearLevelApi = {
   },
 
   create: async (data: Partial<YearLevel>): Promise<ApiResponse<YearLevel>> => {
-    return apiCall<YearLevel>('/year-levels', {
-      method: 'POST',
+    return apiCall<YearLevel>("/year-levels", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },
 
-  update: async (id: number, data: Partial<YearLevel>): Promise<ApiResponse<YearLevel>> => {
+  update: async (
+    id: number,
+    data: Partial<YearLevel>
+  ): Promise<ApiResponse<YearLevel>> => {
     return apiCall<YearLevel>(`/year-levels/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/year-levels/${id}`, { method: 'DELETE' });
+    return apiCall<void>(`/year-levels/${id}`, { method: "DELETE" });
   },
 };
 
-// ============ Subject API ============
+// // ============ Subject API ============
 
-export const subjectApi = {
-  getAll: async (params?: { department_id?: number; year_level_id?: number }): Promise<ApiResponse<Subject[]>> => {
-    const queryString = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : '';
-    return apiCall<Subject[]>(`/subjects${queryString}`);
-  },
+// export const subjectApi = {
+//   getAll: async (params?: { department_id?: number; year_level_id?: number }): Promise<ApiResponse<Subject[]>> => {
+//     const queryString = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : '';
+//     return apiCall<Subject[]>(`/subjects${queryString}`);
+//   },
 
-  getById: async (id: number): Promise<ApiResponse<Subject>> => {
-    return apiCall<Subject>(`/subjects/${id}`);
-  },
+//   getById: async (id: number): Promise<ApiResponse<Subject>> => {
+//     return apiCall<Subject>(`/subjects/${id}`);
+//   },
 
-  create: async (data: Partial<Subject>): Promise<ApiResponse<Subject>> => {
-    return apiCall<Subject>('/subjects', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
+//   create: async (data: Partial<Subject>): Promise<ApiResponse<Subject>> => {
+//     return apiCall<Subject>('/subjects', {
+//       method: 'POST',
+//       body: JSON.stringify(data),
+//     });
+//   },
 
-  update: async (id: number, data: Partial<Subject>): Promise<ApiResponse<Subject>> => {
-    return apiCall<Subject>(`/subjects/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  },
+//   update: async (id: number, data: Partial<Subject>): Promise<ApiResponse<Subject>> => {
+//     return apiCall<Subject>(`/subjects/${id}`, {
+//       method: 'PUT',
+//       body: JSON.stringify(data),
+//     });
+//   },
 
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/subjects/${id}`, { method: 'DELETE' });
-  },
-};
+//   delete: async (id: number): Promise<ApiResponse<void>> => {
+//     return apiCall<void>(`/subjects/${id}`, { method: 'DELETE' });
+//   },
+// };
 
-// ============ Section API ============
+// // ============ Section API ============
 
-export const sectionApi = {
-  getAll: async (subjectId?: number): Promise<ApiResponse<Section[]>> => {
-    const queryString = subjectId ? `?subject_id=${subjectId}` : '';
-    return apiCall<Section[]>(`/sections${queryString}`);
-  },
+// export const sectionApi = {
+//   getAll: async (subjectId?: number): Promise<ApiResponse<Section[]>> => {
+//     const queryString = subjectId ? `?subject_id=${subjectId}` : '';
+//     return apiCall<Section[]>(`/sections${queryString}`);
+//   },
 
-  getById: async (id: number): Promise<ApiResponse<Section>> => {
-    return apiCall<Section>(`/sections/${id}`);
-  },
+//   getById: async (id: number): Promise<ApiResponse<Section>> => {
+//     return apiCall<Section>(`/sections/${id}`);
+//   },
 
-  create: async (data: Partial<Section>): Promise<ApiResponse<Section>> => {
-    return apiCall<Section>('/sections', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
+//   create: async (data: Partial<Section>): Promise<ApiResponse<Section>> => {
+//     return apiCall<Section>('/sections', {
+//       method: 'POST',
+//       body: JSON.stringify(data),
+//     });
+//   },
 
-  update: async (id: number, data: Partial<Section>): Promise<ApiResponse<Section>> => {
-    return apiCall<Section>(`/sections/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  },
+//   update: async (id: number, data: Partial<Section>): Promise<ApiResponse<Section>> => {
+//     return apiCall<Section>(`/sections/${id}`, {
+//       method: 'PUT',
+//       body: JSON.stringify(data),
+//     });
+//   },
 
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/sections/${id}`, { method: 'DELETE' });
-  },
+//   delete: async (id: number): Promise<ApiResponse<void>> => {
+//     return apiCall<void>(`/sections/${id}`, { method: 'DELETE' });
+//   },
 
-  addStudent: async (sectionId: number, studentId: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/sections/${sectionId}/students`, {
-      method: 'POST',
-      body: JSON.stringify({ student_id: studentId }),
-    });
-  },
+//   addStudent: async (sectionId: number, studentId: number): Promise<ApiResponse<void>> => {
+//     return apiCall<void>(`/sections/${sectionId}/students`, {
+//       method: 'POST',
+//       body: JSON.stringify({ student_id: studentId }),
+//     });
+//   },
 
-  removeStudent: async (sectionId: number, studentId: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/sections/${sectionId}/students/${studentId}`, {
-      method: 'DELETE',
-    });
-  },
+//   removeStudent: async (sectionId: number, studentId: number): Promise<ApiResponse<void>> => {
+//     return apiCall<void>(`/sections/${sectionId}/students/${studentId}`, {
+//       method: 'DELETE',
+//     });
+//   },
 
-  getStudents: async (sectionId: number): Promise<ApiResponse<Student[]>> => {
-    return apiCall<Student[]>(`/sections/${sectionId}/students`);
-  },
-};
+//   getStudents: async (sectionId: number): Promise<ApiResponse<Student[]>> => {
+//     return apiCall<Student[]>(`/sections/${sectionId}/students`);
+//   },
+// };
 
 // ============ Student API ============
 
 export const studentApi = {
-  getAll: async (params?: { department_id?: number; year_level_id?: number; status?: string }): Promise<ApiResponse<Student[]>> => {
-    const queryString = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : '';
+  getAll: async (params?: {
+    department_id?: number;
+    year_level_id?: number;
+    status?: string;
+  }): Promise<ApiResponse<Student[]>> => {
+    const queryString = params
+      ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
+      : "";
     return apiCall<Student[]>(`/students${queryString}`);
   },
 
@@ -244,22 +257,27 @@ export const studentApi = {
     return apiCall<Student>(`/students/by-student-id/${studentId}`);
   },
 
-  update: async (id: number, data: Partial<Student>): Promise<ApiResponse<Student>> => {
+  update: async (
+    id: number,
+    data: Partial<Student>
+  ): Promise<ApiResponse<Student>> => {
     return apiCall<Student>(`/students/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/students/${id}`, { method: 'DELETE' });
+    return apiCall<void>(`/students/${id}`, { method: "DELETE" });
   },
 
   getGrades: async (studentId: number): Promise<ApiResponse<Grade[]>> => {
     return apiCall<Grade[]>(`/students/${studentId}/grades`);
   },
 
-  getAttendance: async (studentId: number): Promise<ApiResponse<Attendance[]>> => {
+  getAttendance: async (
+    studentId: number
+  ): Promise<ApiResponse<Attendance[]>> => {
     return apiCall<Attendance[]>(`/students/${studentId}/attendance`);
   },
 
@@ -275,8 +293,13 @@ export const studentApi = {
 // ============ Teacher API ============
 
 export const teacherApi = {
-  getAll: async (params?: { department_id?: number; status?: string }): Promise<ApiResponse<Teacher[]>> => {
-    const queryString = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : '';
+  getAll: async (params?: {
+    department_id?: number;
+    status?: string;
+  }): Promise<ApiResponse<Teacher[]>> => {
+    const queryString = params
+      ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
+      : "";
     return apiCall<Teacher[]>(`/teachers${queryString}`);
   },
 
@@ -288,15 +311,18 @@ export const teacherApi = {
     return apiCall<Teacher>(`/teachers/by-teacher-id/${teacherId}`);
   },
 
-  update: async (id: number, data: Partial<Teacher>): Promise<ApiResponse<Teacher>> => {
+  update: async (
+    id: number,
+    data: Partial<Teacher>
+  ): Promise<ApiResponse<Teacher>> => {
     return apiCall<Teacher>(`/teachers/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/teachers/${id}`, { method: 'DELETE' });
+    return apiCall<void>(`/teachers/${id}`, { method: "DELETE" });
   },
 
   getSections: async (teacherId: number): Promise<ApiResponse<Section[]>> => {
@@ -311,16 +337,22 @@ export const gradeApi = {
     return apiCall<Grade[]>(`/sections/${sectionId}/grades`);
   },
 
-  update: async (gradeId: number, data: Partial<Grade>): Promise<ApiResponse<Grade>> => {
+  update: async (
+    gradeId: number,
+    data: Partial<Grade>
+  ): Promise<ApiResponse<Grade>> => {
     return apiCall<Grade>(`/grades/${gradeId}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
 
-  bulkUpdate: async (sectionId: number, grades: Partial<Grade>[]): Promise<ApiResponse<Grade[]>> => {
+  bulkUpdate: async (
+    sectionId: number,
+    grades: Partial<Grade>[]
+  ): Promise<ApiResponse<Grade[]>> => {
     return apiCall<Grade[]>(`/sections/${sectionId}/grades/bulk`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ grades }),
     });
   },
@@ -329,21 +361,32 @@ export const gradeApi = {
 // ============ Attendance API ============
 
 export const attendanceApi = {
-  getBySection: async (sectionId: number, date?: string): Promise<ApiResponse<Attendance[]>> => {
-    const queryString = date ? `?date=${date}` : '';
-    return apiCall<Attendance[]>(`/sections/${sectionId}/attendance${queryString}`);
+  getBySection: async (
+    sectionId: number,
+    date?: string
+  ): Promise<ApiResponse<Attendance[]>> => {
+    const queryString = date ? `?date=${date}` : "";
+    return apiCall<Attendance[]>(
+      `/sections/${sectionId}/attendance${queryString}`
+    );
   },
 
-  record: async (data: Partial<Attendance>): Promise<ApiResponse<Attendance>> => {
-    return apiCall<Attendance>('/attendance', {
-      method: 'POST',
+  record: async (
+    data: Partial<Attendance>
+  ): Promise<ApiResponse<Attendance>> => {
+    return apiCall<Attendance>("/attendance", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },
 
-  bulkRecord: async (sectionId: number, date: string, records: { student_id: number; status: string }[]): Promise<ApiResponse<Attendance[]>> => {
+  bulkRecord: async (
+    sectionId: number,
+    date: string,
+    records: { student_id: number; status: string }[]
+  ): Promise<ApiResponse<Attendance[]>> => {
     return apiCall<Attendance[]>(`/sections/${sectionId}/attendance/bulk`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ date, records }),
     });
   },
@@ -352,45 +395,59 @@ export const attendanceApi = {
 // ============ Admin API ============
 
 export const adminApi = {
-  getPendingRegistrations: async (): Promise<ApiResponse<RegistrationRequest[]>> => {
-    return apiCall<RegistrationRequest[]>('/admin/pending-registrations');
+  getPendingRegistrations: async (): Promise<
+    ApiResponse<RegistrationRequest[]>
+  > => {
+    return apiCall<RegistrationRequest[]>("/admin/pending-registrations");
   },
 
-  approveRegistration: async (id: number): Promise<ApiResponse<{ student_id?: string; teacher_id?: string }>> => {
-    return apiCall('/admin/registrations/${id}/approve', {
-      method: 'POST',
+  approveRegistration: async (
+    id: number
+  ): Promise<ApiResponse<{ student_id?: string; teacher_id?: string }>> => {
+    return apiCall("/admin/registrations/${id}/approve", {
+      method: "POST",
     });
   },
 
-  denyRegistration: async (id: number, reason?: string): Promise<ApiResponse<void>> => {
+  denyRegistration: async (
+    id: number,
+    reason?: string
+  ): Promise<ApiResponse<void>> => {
     return apiCall<void>(`/admin/registrations/${id}/deny`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ reason }),
     });
   },
 
-  getSystemStats: async (): Promise<ApiResponse<{
-    total_students: number;
-    total_teachers: number;
-    total_subjects: number;
-    total_sections: number;
-    pending_registrations: number;
-  }>> => {
-    return apiCall('/admin/stats');
+  getSystemStats: async (): Promise<
+    ApiResponse<{
+      total_students: number;
+      total_teachers: number;
+      total_subjects: number;
+      total_sections: number;
+      pending_registrations: number;
+    }>
+  > => {
+    return apiCall("/admin/stats");
   },
 
-  getSystemReport: async (type: string, params?: Record<string, string>): Promise<ApiResponse<unknown>> => {
-    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+  getSystemReport: async (
+    type: string,
+    params?: Record<string, string>
+  ): Promise<ApiResponse<unknown>> => {
+    const queryString = params
+      ? `?${new URLSearchParams(params).toString()}`
+      : "";
     return apiCall(`/admin/reports/${type}${queryString}`);
   },
 };
 
 export default {
   auth: authApi,
-  departments: departmentApi,
+  // departments: departmentApi,
   yearLevels: yearLevelApi,
-  subjects: subjectApi,
-  sections: sectionApi,
+  // subjects: subjectApi,
+  // sections: sectionApi,
   students: studentApi,
   teachers: teacherApi,
   grades: gradeApi,

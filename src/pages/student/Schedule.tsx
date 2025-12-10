@@ -1,16 +1,18 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { mockSchedule, mockSubjects } from '@/data/mockData';
-import { Clock, MapPin } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { mockSchedule, mockSubjects } from "@/data/mockData";
+import { Clock, MapPin } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const Schedule: React.FC = () => {
   const getSubjectName = (code: string) => {
-    return mockSubjects.find(s => s.code === code)?.name || code;
+    return mockSubjects.find((s) => s.code === code)?.name || code;
   };
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const currentDay = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -21,21 +23,23 @@ const Schedule: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {days.map((day) => {
-          const daySchedule = mockSchedule.find(s => s.day === day);
+          const daySchedule = mockSchedule.find((s) => s.day === day);
           const isToday = day === currentDay;
 
           return (
             <Card
               key={day}
               className={cn(
-                'transition-all',
-                isToday ? 'ring-2 ring-primary shadow-soft' : ''
+                "transition-all",
+                isToday ? "ring-2 ring-primary shadow-soft" : ""
               )}
             >
-              <CardHeader className={cn(
-                'py-3',
-                isToday ? 'bg-primary/10' : 'bg-muted/50'
-              )}>
+              <CardHeader
+                className={cn(
+                  "py-3",
+                  isToday ? "bg-primary/10" : "bg-muted/50"
+                )}
+              >
                 <CardTitle className="text-base flex items-center justify-between">
                   {day}
                   {isToday && (
@@ -55,7 +59,9 @@ const Schedule: React.FC = () => {
                       <p className="font-medium text-sm text-foreground">
                         {getSubjectName(cls.subject)}
                       </p>
-                      <p className="text-xs text-primary font-medium mt-1">{cls.subject}</p>
+                      <p className="text-xs text-primary font-medium mt-1">
+                        {cls.subject}
+                      </p>
                       <div className="mt-2 space-y-1">
                         <p className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="w-3 h-3" />

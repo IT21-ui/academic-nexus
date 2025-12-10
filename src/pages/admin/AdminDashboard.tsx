@@ -1,32 +1,58 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { StatCard } from '@/components/dashboard/StatCard';
-import { QuickActions } from '@/components/dashboard/QuickActions';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { mockStudents, mockTeachers, mockDepartments, mockPendingRegistrations, mockSubjects, getTeacherFullName } from '@/data/mockData';
-import { Users, BookOpen, Building, GraduationCap, UserPlus, Settings, Calendar, Shield, Check, X } from 'lucide-react';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { QuickActions } from "@/components/dashboard/QuickActions";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  mockStudents,
+  mockTeachers,
+  mockDepartments,
+  mockPendingRegistrations,
+  mockSubjects,
+  getTeacherFullName,
+} from "@/data/mockData";
+import {
+  Users,
+  BookOpen,
+  Building,
+  GraduationCap,
+  UserPlus,
+  Settings,
+  Calendar,
+  Shield,
+  Check,
+  X,
+} from "lucide-react";
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const quickActions = [
-    { icon: UserPlus, label: 'Add User', onClick: () => navigate('/users') },
-    { icon: BookOpen, label: 'Subjects', onClick: () => navigate('/subjects') },
-    { icon: GraduationCap, label: 'Teachers', onClick: () => navigate('/teachers') },
-    { icon: Building, label: 'Departments', onClick: () => navigate('/departments') },
+    { icon: UserPlus, label: "Add User", onClick: () => navigate("/users") },
+    { icon: BookOpen, label: "Subjects", onClick: () => navigate("/subjects") },
+    {
+      icon: GraduationCap,
+      label: "Teachers",
+      onClick: () => navigate("/teachers"),
+    },
+    {
+      icon: Building,
+      label: "Departments",
+      onClick: () => navigate("/departments"),
+    },
   ];
 
   // Find department head name
-  const getDepartmentHeadName = (dept: typeof mockDepartments[0]) => {
+  const getDepartmentHeadName = (dept: (typeof mockDepartments)[0]) => {
     if (dept.head_id) {
-      const head = mockTeachers.find(t => t.id === dept.head_id);
-      return head ? getTeacherFullName(head) : 'Not Assigned';
+      const head = mockTeachers.find((t) => t.id === dept.head_id);
+      return head ? getTeacherFullName(head) : "Not Assigned";
     }
-    return 'Not Assigned';
+    return "Not Assigned";
   };
 
   return (
@@ -39,9 +65,11 @@ const AdminDashboard: React.FC = () => {
               <Shield className="w-8 h-8" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">{user?.name}</h2>
+              <h2 className="text-2xl font-bold">
+                {user?.first_name + " " + user?.last_name}
+              </h2>
               <p className="text-primary-foreground/80">System Administrator</p>
-              <p className="text-primary-foreground/80">{user?.department}</p>
+              <p className="text-primary-foreground/80">{user?.role}</p>
             </div>
           </div>
         </CardContent>
@@ -82,7 +110,9 @@ const AdminDashboard: React.FC = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Pending User Approvals</CardTitle>
-              <Badge variant="secondary">{mockPendingRegistrations.length} pending</Badge>
+              <Badge variant="secondary">
+                {mockPendingRegistrations.length} pending
+              </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
               {mockPendingRegistrations.map((request) => (
@@ -91,10 +121,16 @@ const AdminDashboard: React.FC = () => {
                   className="flex items-center justify-between p-4 rounded-lg border border-border"
                 >
                   <div>
-                    <p className="font-medium text-foreground">{request.first_name} {request.last_name}</p>
-                    <p className="text-sm text-muted-foreground">{request.email}</p>
+                    <p className="font-medium text-foreground">
+                      {request.first_name} {request.last_name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {request.email}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="capitalize">{request.role}</Badge>
+                      <Badge variant="outline" className="capitalize">
+                        {request.role}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">
                         Requested: {request.request_date}
                       </span>
@@ -105,7 +141,11 @@ const AdminDashboard: React.FC = () => {
                       <Check className="w-4 h-4" />
                       Approve
                     </Button>
-                    <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 text-destructive hover:text-destructive"
+                    >
                       <X className="w-4 h-4" />
                       Deny
                     </Button>
@@ -126,13 +166,17 @@ const AdminDashboard: React.FC = () => {
                   <div
                     key={dept.id}
                     className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                    onClick={() => navigate('/departments')}
+                    onClick={() => navigate("/departments")}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-foreground">{dept.name}</h4>
+                      <h4 className="font-semibold text-foreground">
+                        {dept.name}
+                      </h4>
                       <Badge variant="secondary">{dept.code}</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">Head: {getDepartmentHeadName(dept)}</p>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Head: {getDepartmentHeadName(dept)}
+                    </p>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="flex items-center gap-1 text-muted-foreground">
                         <Users className="w-4 h-4" />
@@ -152,7 +196,7 @@ const AdminDashboard: React.FC = () => {
 
         <div className="space-y-6">
           <QuickActions actions={quickActions} title="Admin Actions" />
-          
+
           {/* System Status */}
           <Card>
             <CardHeader>
@@ -160,13 +204,18 @@ const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { label: 'Database', status: 'Operational' },
-                { label: 'Authentication', status: 'Operational' },
-                { label: 'File Storage', status: 'Operational' },
-                { label: 'Email Service', status: 'Operational' },
+                { label: "Database", status: "Operational" },
+                { label: "Authentication", status: "Operational" },
+                { label: "File Storage", status: "Operational" },
+                { label: "Email Service", status: "Operational" },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{item.label}</span>
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-sm text-muted-foreground">
+                    {item.label}
+                  </span>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
                     <span className="text-sm text-success">{item.status}</span>
