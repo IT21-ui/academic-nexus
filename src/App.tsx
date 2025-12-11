@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 
 import Schedule from "./pages/student/Schedule";
 import ClassManagement from "./pages/admin/ClassManagement";
+import Settings from "./pages/admin/Settings";
 
 const queryClient = new QueryClient();
 
@@ -60,7 +61,7 @@ const App = () => (
               <Route path="/teachers" element={<TeacherManagement />} />
               <Route path="/departments" element={<DepartmentManagement />} />
               <Route path="/class-management" element={<ClassManagement />} />
-              <Route path="/settings" element={<Dashboard />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

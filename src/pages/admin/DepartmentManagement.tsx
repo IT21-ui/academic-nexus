@@ -13,7 +13,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Edit, Users, GraduationCap, Building } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Users,
+  GraduationCap,
+  Building,
+  Trash2,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import departmentApi from "@/services/departmentApi";
 import type { Department } from "@/types/models";
@@ -33,6 +40,9 @@ const DepartmentManagement: React.FC = () => {
     code: "",
     description: "",
   });
+  const [editingDepartmentId, setEditingDepartmentId] = useState<number | null>(
+    null
+  );
 
   // Find department head name
   const getDepartmentHeadName = (dept: Department) => {
@@ -40,6 +50,54 @@ const DepartmentManagement: React.FC = () => {
       return `${dept.head.first_name} ${dept.head.last_name}`;
     }
     return "Not Assigned";
+  };
+
+  const handleOpenCreate = () => {
+    setNewDept({ name: "", code: "", description: "" });
+    setEditingDepartmentId(null);
+    setIsAddOpen(true);
+  };
+
+  const handleDeleteDepartment = async (dept: Department) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete department ${dept.code} - ${dept.name}?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setIsSubmitting(true);
+      await departmentApi.deleteDepartment(dept.id);
+      toast({
+        title: "Department deleted",
+        description: `${dept.name} has been deleted successfully.`,
+      });
+
+      // Refresh departments, staying on the same page if possible
+      const nextPage =
+        departments.length === 1 && currentPage > 1
+          ? currentPage - 1
+          : currentPage;
+      fetchDepartments(nextPage);
+    } catch (error) {
+      toast({
+        title: "Error deleting department",
+        description:
+          "There was a problem deleting this department. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditDepartment = (dept: Department) => {
+    setEditingDepartmentId(dept.id);
+    setNewDept({
+      name: dept.name,
+      code: dept.code,
+      description: dept.description || "",
+    });
+    setIsAddOpen(true);
   };
 
   const fetchDepartments = async (page: number = 1) => {
@@ -66,7 +124,7 @@ const DepartmentManagement: React.FC = () => {
     fetchDepartments(1);
   }, []);
 
-  const handleCreateDepartment = async () => {
+  const handleSubmitDepartment = async () => {
     if (!newDept.name || !newDept.code) {
       toast({
         title: "Missing information",
@@ -78,30 +136,55 @@ const DepartmentManagement: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      const response = await departmentApi.createDepartment({
-        name: newDept.name,
-        code: newDept.code,
-        description: newDept.description || undefined,
-      });
+      if (editingDepartmentId) {
+        const response = await departmentApi.updateDepartment(
+          editingDepartmentId,
+          {
+            name: newDept.name,
+            code: newDept.code,
+            description: newDept.description || undefined,
+          }
+        );
 
-      // If the request did not throw, assume success (backend may not wrap in ApiResponse)
-      const createdName =
-        (response as any)?.data?.name ||
-        (response as any)?.name ||
-        newDept.name;
+        const updatedName =
+          (response as any)?.data?.name ||
+          (response as any)?.name ||
+          newDept.name;
 
-      toast({
-        title: "Department created",
-        description: `${createdName} has been created successfully.`,
-      });
+        toast({
+          title: "Department updated",
+          description: `${updatedName} has been updated successfully.`,
+        });
+      } else {
+        const response = await departmentApi.createDepartment({
+          name: newDept.name,
+          code: newDept.code,
+          description: newDept.description || undefined,
+        });
+
+        // If the request did not throw, assume success (backend may not wrap in ApiResponse)
+        const createdName =
+          (response as any)?.data?.name ||
+          (response as any)?.name ||
+          newDept.name;
+
+        toast({
+          title: "Department created",
+          description: `${createdName} has been created successfully.`,
+        });
+      }
+
       setIsAddOpen(false);
       setNewDept({ name: "", code: "", description: "" });
-      fetchDepartments();
+      setEditingDepartmentId(null);
+      fetchDepartments(currentPage);
     } catch (error) {
       toast({
-        title: "Error creating department",
+        title: editingDepartmentId
+          ? "Error updating department"
+          : "Error creating department",
         description:
-          "There was a problem creating the department. Please try again.",
+          "There was a problem saving the department. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -122,16 +205,20 @@ const DepartmentManagement: React.FC = () => {
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={handleOpenCreate}>
               <Plus className="w-4 h-4" />
               Add Department
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Add Department</DialogTitle>
+              <DialogTitle>
+                {editingDepartmentId ? "Edit Department" : "Add Department"}
+              </DialogTitle>
               <DialogDescription>
-                Create a new academic department.
+                {editingDepartmentId
+                  ? "Update the details of this academic department."
+                  : "Create a new academic department."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -174,17 +261,26 @@ const DepartmentManagement: React.FC = () => {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsAddOpen(false)}
+                onClick={() => {
+                  setIsAddOpen(false);
+                  setEditingDepartmentId(null);
+                }}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
               <Button
                 variant="gradient"
-                onClick={handleCreateDepartment}
+                onClick={handleSubmitDepartment}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Creating..." : "Create Department"}
+                {isSubmitting
+                  ? editingDepartmentId
+                    ? "Updating..."
+                    : "Creating..."
+                  : editingDepartmentId
+                  ? "Update Department"
+                  : "Create Department"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -212,9 +308,23 @@ const DepartmentManagement: React.FC = () => {
                   </Badge>
                 </div>
               </div>
-              <Button size="icon" variant="ghost">
-                <Edit className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => handleEditDepartment(dept)}
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => handleDeleteDepartment(dept)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
