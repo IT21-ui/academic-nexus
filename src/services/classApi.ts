@@ -28,6 +28,7 @@ export const classApi = {
   // Create a new class
   async createClass(data: {
     subject_id: number;
+    department_id?: number;
     section_id?: number;
     teacher_id: number;
     schedules: {
@@ -46,6 +47,7 @@ export const classApi = {
     id: number,
     data: Partial<{
       subject_id: number;
+      department_id?: number;
       section_id?: number;
       teacher_id: number;
       schedules: {

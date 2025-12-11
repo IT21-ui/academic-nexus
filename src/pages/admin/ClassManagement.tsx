@@ -27,7 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Clock, Edit, Plus, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Edit,
+  GraduationCap,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import classApi from "@/services/classApi";
 import subjectApi from "@/services/subjectApi";
@@ -40,7 +47,9 @@ import type {
   Section,
   User,
   Department,
+  ApiResponse,
 } from "@/types/models";
+import { format24HourTo12HourTime } from "@/lib/utils";
 
 const daysOfWeek = [
   { value: "1", label: "Monday" },
@@ -255,10 +264,29 @@ const ClassManagement: React.FC = () => {
       resetForm();
       setIsClassDialogOpen(false);
       fetchClasses(classesPage);
-    } catch (error) {
+    } catch (error: any) {
+      const apiResponse = error?.response?.data as
+        | ApiResponse<ClassModel>
+        | undefined;
+
+      if (apiResponse?.success) {
+        toast({
+          title: editingClassId ? "Class Updated" : "Class Created",
+          description:
+            apiResponse.message ||
+            "The class has been saved, but the server returned a non-standard status.",
+        });
+
+        resetForm();
+        setIsClassDialogOpen(false);
+        fetchClasses(classesPage);
+        return;
+      }
+
       toast({
         title: "Error",
-        description: "There was a problem saving this class.",
+        description:
+          apiResponse?.message || "There was a problem saving this class.",
         variant: "destructive",
       });
     } finally {
@@ -269,7 +297,7 @@ const ClassManagement: React.FC = () => {
   const getDayLabel = (dayValue: number | undefined) => {
     if (!dayValue) return "";
     const found = daysOfWeek.find((d) => Number(d.value) === dayValue);
-    return found ? found.label : "";
+    return found ? found.label.slice(0, 3) : "";
   };
 
   return (
@@ -582,7 +610,8 @@ const ClassManagement: React.FC = () => {
                         <div className="text-sm">
                           <div>{getDayLabel(firstSchedule.day)}</div>
                           <div className="text-xs text-muted-foreground">
-                            {firstSchedule.timeStart} - {firstSchedule.timeEnd}
+                            {format24HourTo12HourTime(firstSchedule.timeStart)}{" "}
+                            - {format24HourTo12HourTime(firstSchedule.timeEnd)}
                           </div>
                         </div>
                       ) : (
@@ -592,7 +621,15 @@ const ClassManagement: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {cls.students ? cls.students.length : 0}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {}}
+                      >
+                        <GraduationCap className="w-4 h-4" />
+                        {`${cls.students ? cls.students.length : 0}  students`}
+                      </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

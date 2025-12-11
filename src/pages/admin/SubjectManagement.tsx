@@ -328,6 +328,10 @@ const SubjectManagement: React.FC = () => {
       });
       setEditingSectionId(null);
       setIsAddSectionOpen(false);
+
+      // Refresh section list
+      const refreshed = await sectionApi.getSections(1, 100);
+      setSections(refreshed.data);
     } catch (error) {
       toast({
         title: "Error",
@@ -877,7 +881,7 @@ const SubjectManagement: React.FC = () => {
                     <TableHead>Units</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Year Level</TableHead>
-                    <TableHead>Sections</TableHead>
+                    <TableHead>Class</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -909,9 +913,10 @@ const SubjectManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>{subject.year_level || ""}</TableCell>
                       <TableCell>
-                        <Badge className="bg-primary/10 text-primary">
-                          {`${subject.sections.length} sections`}
-                        </Badge>
+                        <Button variant="ghost" size="sm" className="gap-2">
+                          <Calendar className="w-4 h-4" />
+                          {subject.classes_count} classes
+                        </Button>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -956,7 +961,7 @@ const SubjectManagement: React.FC = () => {
                   <TableRow>
                     <TableHead>Section</TableHead>
                     <TableHead>Department</TableHead>
-                    <TableHead>Subjects</TableHead>
+                    <TableHead>Class</TableHead>
                     <TableHead>Room</TableHead>
                     <TableHead>Students</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -986,17 +991,9 @@ const SubjectManagement: React.FC = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => {
-                              setSelectedSubjectsSection(section);
-                              setIsManageSubjectsOpen(true);
-                            }}
-                          >
-                            <BookOpen className="w-4 h-4" />
-                            {section.subjects.length} subjects
+                          <Button variant="ghost" size="sm" className="gap-2">
+                            <Calendar className="w-4 h-4" />
+                            {section.classes_count} classes
                           </Button>
                         </TableCell>
                         <TableCell>{section.room}</TableCell>

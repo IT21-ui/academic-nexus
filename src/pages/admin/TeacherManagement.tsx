@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -11,10 +12,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, Edit, Trash2, Mail, BookOpen } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Mail, Calendar } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import userApi from "@/services/userApi";
-import type { User } from "@/types/models";
+import departmentApi from "@/services/departmentApi";
+import type { User, Department } from "@/types/models";
 
 const TeacherManagement: React.FC = () => {
   const { toast } = useToast();
@@ -24,6 +42,17 @@ const TeacherManagement: React.FC = () => {
   const [teachersTotal, setTeachersTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isTeacherDialogOpen, setIsTeacherDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingTeacherId, setEditingTeacherId] = useState<number | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
+  const [teacherForm, setTeacherForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    password: "",
+  });
 
   const fetchTeachers = async (page: number = teachersPage) => {
     try {
@@ -54,6 +83,170 @@ const TeacherManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const res = await departmentApi.getDepartments(1, 100);
+        if (res && res.data) {
+          setDepartments(res.data);
+        }
+      } catch (error) {
+        toast({
+          title: "Error loading departments",
+          description:
+            "There was a problem fetching departments. Department options may be incomplete.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchDepartments();
+  }, [toast]);
+
+  const resetTeacherForm = () => {
+    setTeacherForm({
+      first_name: "",
+      last_name: "",
+      email: "",
+      password: "",
+    });
+    setSelectedDepartmentId("");
+    setEditingTeacherId(null);
+  };
+
+  const handleOpenCreateTeacher = () => {
+    resetTeacherForm();
+    setIsTeacherDialogOpen(true);
+  };
+
+  const handleEditTeacher = (teacher: User) => {
+    setEditingTeacherId(teacher.id);
+    setTeacherForm({
+      first_name: teacher.first_name,
+      last_name: teacher.last_name,
+      email: teacher.email,
+      password: "",
+    });
+    setSelectedDepartmentId(
+      teacher.department_id ? String(teacher.department_id) : ""
+    );
+    setIsTeacherDialogOpen(true);
+  };
+
+  const handleDeleteTeacher = async (teacher: User) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete instructor ${teacher.first_name} ${teacher.last_name}?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await userApi.deleteUser(teacher.id);
+      toast({
+        title: "Teacher Deleted",
+        description: `${teacher.first_name} ${teacher.last_name} has been deleted.`,
+      });
+      fetchTeachers(teachersPage);
+    } catch (error) {
+      toast({
+        title: "Error deleting teacher",
+        description: "There was a problem deleting this teacher.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmitTeacher = async () => {
+    if (
+      !teacherForm.first_name ||
+      !teacherForm.last_name ||
+      !teacherForm.email
+    ) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in first name, last name, and email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedDepartmentId) {
+      toast({
+        title: "Department required",
+        description: "Please select a department for this instructor.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editingTeacherId && !teacherForm.password) {
+      toast({
+        title: "Password required",
+        description: "Please provide a password for the new instructor.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const department_id = Number(selectedDepartmentId);
+
+      if (editingTeacherId) {
+        const payload: any = {
+          first_name: teacherForm.first_name,
+          last_name: teacherForm.last_name,
+          email: teacherForm.email,
+          department_id,
+          role: "instructor" as const,
+          status: "approved" as const,
+        };
+
+        if (teacherForm.password) {
+          payload.password = teacherForm.password;
+        }
+
+        await userApi.updateUser(editingTeacherId, payload);
+
+        toast({
+          title: "Teacher Updated",
+          description: "The instructor has been updated successfully.",
+        });
+      } else {
+        const created = await userApi.createUser({
+          first_name: teacherForm.first_name,
+          last_name: teacherForm.last_name,
+          email: teacherForm.email,
+          role: "instructor",
+          password: teacherForm.password,
+          status: "approved",
+          department_id,
+        });
+
+        if (created) {
+          toast({
+            title: "Teacher Created",
+            description: `${created.first_name} ${created.last_name} has been created successfully.`,
+          });
+        }
+      }
+
+      resetTeacherForm();
+      setIsTeacherDialogOpen(false);
+      fetchTeachers(teachersPage);
+    } catch (error) {
+      toast({
+        title: editingTeacherId
+          ? "Error updating teacher"
+          : "Error creating teacher",
+        description: "There was a problem saving this instructor.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
   };
@@ -81,10 +274,145 @@ const TeacherManagement: React.FC = () => {
             Manage instructor profiles and assignments
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Teacher
-        </Button>
+        <Dialog
+          open={isTeacherDialogOpen}
+          onOpenChange={setIsTeacherDialogOpen}
+        >
+          <DialogTrigger asChild>
+            <Button className="gap-2" onClick={handleOpenCreateTeacher}>
+              <Plus className="w-4 h-4" />
+              Add Teacher
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {editingTeacherId ? "Update Instructor" : "Add New Instructor"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingTeacherId
+                  ? "Update the instructor's basic information."
+                  : "Create a new instructor by filling in the required information."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First Name</Label>
+                  <Input
+                    id="first_name"
+                    placeholder="First name"
+                    value={teacherForm.first_name}
+                    onChange={(e) =>
+                      setTeacherForm((prev) => ({
+                        ...prev,
+                        first_name: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last Name</Label>
+                  <Input
+                    id="last_name"
+                    placeholder="Last name"
+                    value={teacherForm.last_name}
+                    onChange={(e) =>
+                      setTeacherForm((prev) => ({
+                        ...prev,
+                        last_name: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="instructor@example.com"
+                  value={teacherForm.email}
+                  onChange={(e) =>
+                    setTeacherForm((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select
+                  value={selectedDepartmentId}
+                  onValueChange={(value) => setSelectedDepartmentId(value)}
+                >
+                  <SelectTrigger id="department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={String(dept.id)}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">
+                  Password
+                  {!editingTeacherId && (
+                    <span className="text-xs text-muted-foreground ml-1">
+                      (required for new instructors)
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder={
+                    editingTeacherId
+                      ? "Leave blank to keep current password"
+                      : "Enter password"
+                  }
+                  value={teacherForm.password}
+                  onChange={(e) =>
+                    setTeacherForm((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsTeacherDialogOpen(false);
+                  resetTeacherForm();
+                }}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="gradient"
+                onClick={handleSubmitTeacher}
+                disabled={isSubmitting}
+              >
+                {isSubmitting
+                  ? editingTeacherId
+                    ? "Updating..."
+                    : "Creating..."
+                  : editingTeacherId
+                  ? "Update Instructor"
+                  : "Create Instructor"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -129,13 +457,17 @@ const TeacherManagement: React.FC = () => {
                 </p>
                 <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <BookOpen className="w-4 h-4" />
-                    {instructor.subjects ? instructor.subjects.length : 0}{" "}
-                    subjects
+                    <Calendar className="w-4 h-4" />
+                    {instructor.classes_count ?? 0} classes
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-4">
-                  <Button size="sm" variant="outline" className="flex-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleEditTeacher(instructor)}
+                  >
                     <Edit className="w-4 h-4 mr-1" />
                     Edit
                   </Button>
@@ -185,7 +517,7 @@ const TeacherManagement: React.FC = () => {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Assigned Subjects</TableHead>
+                <TableHead>Assigned Classes</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -212,18 +544,21 @@ const TeacherManagement: React.FC = () => {
                     <TableCell>{`${instructor.first_name} ${instructor.last_name}`}</TableCell>
                     <TableCell>{instructor.email}</TableCell>
                     <TableCell>{instructor.department?.name || ""}</TableCell>
-                    <TableCell>
-                      {instructor.subjects ? instructor.subjects.length : 0}
-                    </TableCell>
+                    <TableCell>{instructor.classes_count ?? 0}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button size="icon" variant="ghost">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEditTeacher(instructor)}
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button
                           size="icon"
                           variant="ghost"
                           className="text-destructive"
+                          onClick={() => handleDeleteTeacher(instructor)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

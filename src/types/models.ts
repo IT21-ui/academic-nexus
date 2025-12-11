@@ -14,6 +14,7 @@ export interface User {
   subjects?: [];
   created_at?: string;
   updated_at?: string;
+  classes_count?: number;
 }
 
 export interface Student extends User {
@@ -59,6 +60,7 @@ export interface Subject {
   department?: Department;
   year_level?: number;
   sections?: Section[];
+  classes_count?: number;
 }
 
 export interface Section {
@@ -74,6 +76,7 @@ export interface Section {
   subjects?: Subject[];
   department?: Department;
   student_count?: number;
+  classes_count?: number;
 }
 
 export interface SubjectAssignment {
