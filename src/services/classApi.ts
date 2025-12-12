@@ -55,7 +55,8 @@ export const classApi = {
         timeStart: string;
         timeEnd: string;
       }[];
-      student_ids?: number[];
+      studentIds?: number[];
+      skipSectionStudents?: boolean;
     }>
   ) {
     const response = await api.put<ApiResponse<Class>>(

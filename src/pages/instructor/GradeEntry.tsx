@@ -1,20 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockStudents, mockSections, getStudentFullName } from '@/data/mockData';
+import api from '@/services/apiClient';
 import { Save, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const GradeEntry: React.FC = () => {
   const { toast } = useToast();
-  
-  // Get sections assigned to instructor 1
-  const mySections = mockSections.filter(s => s.teacher_id === 1);
-  const [selectedSectionId, setSelectedSectionId] = useState(mySections[0]?.id.toString() || '');
+  const { user } = useAuth();
+  const [classes, setClasses] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [students, setStudents] = useState<any[]>([]);
   const [grades, setGrades] = useState<Record<number, { midterm: string; finals: string }>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchTeacherClasses = async () => {
+      if (!user?.id) return;
+
+      try {
+        setLoading(true);
+        const classesRes = await api.get(`/api/teachers/${user.id}/classes`);
+        setClasses(classesRes.data || []);
+        
+        if (classesRes.data?.length > 0) {
+          setSelectedClassId(classesRes.data[0].id.toString());
+        }
+      } catch (error) {
+        console.error('Error fetching teacher classes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeacherClasses();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const fetchClassStudents = async () => {
+      if (!selectedClassId) return;
+
+      try {
+        const classRes = await api.get(`/api/classes/${selectedClassId}`);
+        const classData = classRes.data;
+        setStudents(classData.students || []);
+        
+        // Initialize grades with existing data if available
+        const initialGrades: Record<number, { midterm: string; finals: string }> = {};
+        classData.students?.forEach((student: any) => {
+          initialGrades[student.id] = {
+            midterm: student.pivot?.midterm || '',
+            finals: student.pivot?.finals || ''
+          };
+        });
+        setGrades(initialGrades);
+      } catch (error) {
+        console.error('Error fetching class students:', error);
+      }
+    };
+
+    fetchClassStudents();
+  }, [selectedClassId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading grade entry...</div>
+      </div>
+    );
+  }
 
   const handleGradeChange = (studentId: number, field: 'midterm' | 'finals', value: string) => {
     setGrades(prev => ({
@@ -26,14 +85,39 @@ const GradeEntry: React.FC = () => {
     }));
   };
 
-  const handleSave = () => {
-    toast({
-      title: 'Grades Saved',
-      description: 'All grades have been saved successfully.',
-    });
-  };
+  const handleSave = async () => {
+    if (!selectedClassId) return;
+    
+    try {
+      setSaving(true);
+      
+      // Prepare grades data for API
+      const gradesData = Object.entries(grades).map(([studentId, grade]) => ({
+        student_id: parseInt(studentId),
+        midterm: grade.midterm ? parseFloat(grade.midterm) : null,
+        finals: grade.finals ? parseFloat(grade.finals) : null,
+        final_grade: grade.midterm && grade.finals 
+          ? parseFloat(((parseFloat(grade.midterm) + parseFloat(grade.finals)) / 2).toFixed(1))
+          : null
+      }));
 
-  const selectedSection = mySections.find(s => s.id.toString() === selectedSectionId);
+      await api.post(`/api/classes/${selectedClassId}/grades`, { grades: gradesData });
+      
+      toast({
+        title: "Grades Saved",
+        description: "Student grades have been updated successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error saving grades:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save grades. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -52,14 +136,14 @@ const GradeEntry: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Student Grades</CardTitle>
           <div className="flex items-center gap-4">
-            <Select value={selectedSectionId} onValueChange={setSelectedSectionId}>
+          <Select value={selectedClassId} onValueChange={setSelectedClassId}>
               <SelectTrigger className="w-64">
                 <SelectValue placeholder="Select class" />
               </SelectTrigger>
               <SelectContent>
-                {mySections.map((section) => (
-                  <SelectItem key={section.id} value={section.id.toString()}>
-                    {section.subject?.code} - {section.name}
+                {classes.map((classItem) => (
+                  <SelectItem key={classItem.id} value={classItem.id.toString()}>
+                    {classItem.subject?.code} - {classItem.subject?.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -82,22 +166,26 @@ const GradeEntry: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockStudents.map((student) => {
+              {students.map((student) => {
                 const studentGrades = grades[student.id] || { midterm: '', finals: '' };
                 const midterm = parseFloat(studentGrades.midterm) || 0;
                 const finals = parseFloat(studentGrades.finals) || 0;
-                const finalGrade = midterm && finals ? Math.round((midterm + finals) / 2) : '-';
+                const finalGrade = midterm && finals 
+                  ? parseFloat(((midterm + finals) / 2).toFixed(1))
+                  : '-';
+                const isPassed = finalGrade !== '-' && finalGrade <= 3.0;
 
                 return (
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">{student.student_id}</TableCell>
-                    <TableCell>{getStudentFullName(student)}</TableCell>
+                    <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
                     <TableCell>
                       <Input
                         type="number"
-                        min="0"
-                        max="100"
-                        placeholder="0-100"
+                        min="1"
+                        max="5"
+                        step="0.1"
+                        placeholder="1.0-5.0"
                         value={studentGrades.midterm}
                         onChange={(e) => handleGradeChange(student.id, 'midterm', e.target.value)}
                         className="w-full"
@@ -106,15 +194,18 @@ const GradeEntry: React.FC = () => {
                     <TableCell>
                       <Input
                         type="number"
-                        min="0"
-                        max="100"
-                        placeholder="0-100"
+                        min="1"
+                        max="5"
+                        step="0.1"
+                        placeholder="1.0-5.0"
                         value={studentGrades.finals}
                         onChange={(e) => handleGradeChange(student.id, 'finals', e.target.value)}
                         className="w-full"
                       />
                     </TableCell>
-                    <TableCell className="font-bold text-primary">{finalGrade}</TableCell>
+                    <TableCell className={`font-bold ${isPassed ? 'text-success' : 'text-destructive'}`}>
+                      {finalGrade} {finalGrade !== '-' && (isPassed ? '(PASSED)' : '(FAILED)')}
+                    </TableCell>
                   </TableRow>
                 );
               })}

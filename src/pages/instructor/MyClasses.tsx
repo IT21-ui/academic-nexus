@@ -1,16 +1,56 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockSections, mockStudents, getTeacherFullName } from '@/data/mockData';
+import api from '@/services/apiClient';
 import { Users, Clock, MapPin, FileSpreadsheet, ClipboardCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const MyClasses: React.FC = () => {
   const navigate = useNavigate();
-  
-  // Get sections assigned to instructor 1
-  const mySections = mockSections.filter(s => s.teacher_id === 1).slice(0, 2);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchTeacherClasses = async () => {
+      if (!user?.id) return;
+
+      try {
+        setLoading(true);
+        const classesRes = await api.get(`/api/teachers/${user.id}/classes`);
+        setClasses(classesRes.data || []);
+      } catch (error) {
+        console.error('Error fetching teacher classes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeacherClasses();
+  }, [user?.id]);
+
+  const getDayName = (dayNumber: number): string => {
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    return days[dayNumber - 1] || "Unknown";
+  };
+
+  const formatTime = (time: string): string => {
+    const [hours, minutes] = time.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading classes...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -20,17 +60,17 @@ const MyClasses: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {mySections.map((section) => (
-          <Card key={section.id} className="hover:shadow-soft transition-shadow">
+        {classes.map((classItem) => (
+          <Card key={classItem.id} className="hover:shadow-soft transition-shadow">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
-                  <Badge variant="secondary" className="mb-2">{section.subject?.code}</Badge>
-                  <CardTitle>{section.subject?.name}</CardTitle>
+                  <Badge variant="secondary" className="mb-2">{classItem.subject?.code}</Badge>
+                  <CardTitle>{classItem.subject?.name}</CardTitle>
                 </div>
                 <span className="flex items-center gap-1 text-sm bg-primary/10 text-primary px-3 py-1 rounded-full">
                   <Users className="w-4 h-4" />
-                  {section.student_count || 0} students
+                  {classItem.students?.length || 0} students
                 </span>
               </div>
             </CardHeader>
@@ -38,11 +78,16 @@ const MyClasses: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="w-4 h-4" />
-                  <span>{section.schedule_day} {section.schedule_time}</span>
+                  <span>
+                    {classItem.schedules && classItem.schedules.length > 0
+                      ? `${getDayName(classItem.schedules[0].day)} ${formatTime(classItem.schedules[0].timeStart)}-${formatTime(classItem.schedules[0].timeEnd)}`
+                      : 'Schedule TBD'
+                    }
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="w-4 h-4" />
-                  <span>{section.room}</span>
+                  <span>{classItem.room || 'TBD'}</span>
                 </div>
               </div>
               
@@ -67,6 +112,11 @@ const MyClasses: React.FC = () => {
             </CardContent>
           </Card>
         ))}
+        {classes.length === 0 && (
+          <div className="col-span-full text-center py-8 text-muted-foreground">
+            No classes assigned yet.
+          </div>
+        )}
       </div>
     </div>
   );

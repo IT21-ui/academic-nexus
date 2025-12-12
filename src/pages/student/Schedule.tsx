@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import api from "@/services/api";
+import api from "@/services/apiClient";
 import { Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,7 @@ const Schedule: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const scheduleRes = await api.students.getSchedule(user.id);
+        const scheduleRes = await api.get(`/api/students/${user.id}/schedule`);
 
         if (scheduleRes.data && scheduleRes.data.length > 0) {
           setSchedule(scheduleRes.data);

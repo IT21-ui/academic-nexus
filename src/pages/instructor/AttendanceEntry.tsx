@@ -1,23 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockStudents, mockSections, getStudentFullName } from '@/data/mockData';
+import api from '@/services/apiClient';
 import { Save, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 type AttendanceStatus = 'present' | 'absent' | 'late';
 
 const AttendanceEntry: React.FC = () => {
   const { toast } = useToast();
-  
-  // Get sections assigned to instructor 1
-  const mySections = mockSections.filter(s => s.teacher_id === 1);
-  const [selectedSectionId, setSelectedSectionId] = useState(mySections[0]?.id.toString() || '');
+  const { user } = useAuth();
+  const [classes, setClasses] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [students, setStudents] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<Record<number, AttendanceStatus>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchTeacherClasses = async () => {
+      if (!user?.id) return;
+
+      try {
+        setLoading(true);
+        const classesRes = await api.get(`/api/teachers/${user.id}/classes`);
+        setClasses(classesRes.data || []);
+        
+        if (classesRes.data?.length > 0) {
+          setSelectedClassId(classesRes.data[0].id.toString());
+        }
+      } catch (error) {
+        console.error('Error fetching teacher classes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeacherClasses();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const fetchClassStudents = async () => {
+      if (!selectedClassId) return;
+
+      try {
+        const classRes = await api.get(`/api/classes/${selectedClassId}`);
+        const classData = classRes.data;
+        setStudents(classData.students || []);
+        
+        // Initialize attendance with existing data if available
+        const initialAttendance: Record<number, AttendanceStatus> = {};
+        classData.students?.forEach((student: any) => {
+          initialAttendance[student.id] = 'present'; // Default to present
+        });
+        setAttendance(initialAttendance);
+      } catch (error) {
+        console.error('Error fetching class students:', error);
+      }
+    };
+
+    fetchClassStudents();
+  }, [selectedClassId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading attendance entry...</div>
+      </div>
+    );
+  }
 
   const handleStatusChange = (studentId: number, status: AttendanceStatus) => {
     setAttendance(prev => ({
@@ -26,13 +82,37 @@ const AttendanceEntry: React.FC = () => {
     }));
   };
 
-  const handleSave = () => {
-    toast({
-      title: 'Attendance Saved',
-      description: 'Attendance has been recorded successfully.',
-    });
-  };
+  const handleSave = async () => {
+    if (!selectedClassId) return;
+    
+    try {
+      setSaving(true);
+      
+      // Prepare attendance data for API
+      const attendanceData = Object.entries(attendance).map(([studentId, status]) => ({
+        student_id: parseInt(studentId),
+        date: selectedDate,
+        status: status,
+        class_id: parseInt(selectedClassId)
+      }));
 
+      await api.post(`/api/classes/${selectedClassId}/attendance`, { attendance: attendanceData });
+      
+      toast({
+        title: 'Attendance Saved',
+        description: 'Attendance has been recorded successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error saving attendance:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save attendance. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
   const getStatusButton = (studentId: number, status: AttendanceStatus, icon: React.ElementType, label: string) => {
     const Icon = icon;
     const isSelected = attendance[studentId] === status;
@@ -72,14 +152,14 @@ const AttendanceEntry: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Mark Attendance</CardTitle>
           <div className="flex items-center gap-4">
-            <Select value={selectedSectionId} onValueChange={setSelectedSectionId}>
+            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
               <SelectTrigger className="w-64">
                 <SelectValue placeholder="Select class" />
               </SelectTrigger>
               <SelectContent>
-                {mySections.map((section) => (
-                  <SelectItem key={section.id} value={section.id.toString()}>
-                    {section.subject?.code} - {section.name}
+                {classes.map((classItem) => (
+                  <SelectItem key={classItem.id} value={classItem.id.toString()}>
+                    {classItem.subject?.code} - {classItem.subject?.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -105,10 +185,10 @@ const AttendanceEntry: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockStudents.map((student) => (
+              {students.map((student) => (
                 <TableRow key={student.id}>
                   <TableCell className="font-medium">{student.student_id}</TableCell>
-                  <TableCell>{getStudentFullName(student)}</TableCell>
+                  <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-2">
                       {getStatusButton(student.id, 'present', CheckCircle, 'Present')}
@@ -118,6 +198,13 @@ const AttendanceEntry: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {students.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    No students found for this class.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

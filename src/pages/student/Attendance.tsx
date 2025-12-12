@@ -3,14 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/services/api';
+import api from '@/services/apiClient';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Attendance: React.FC = () => {
   const { user } = useAuth();
   const [attendance, setAttendance] = useState([]);
-  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,13 +19,8 @@ const Attendance: React.FC = () => {
       try {
         setLoading(true);
         
-        const [attendanceRes, sectionsRes] = await Promise.all([
-          api.students.getAttendance(user.id),
-          api.sections.getAll()
-        ]);
-
+        const attendanceRes = await api.get(`/api/students/${user.id}/attendance`);
         setAttendance(attendanceRes.data || []);
-        setSections(sectionsRes.data || []);
       } catch (error) {
         console.error('Error fetching attendance data:', error);
       } finally {
@@ -67,18 +61,6 @@ const Attendance: React.FC = () => {
       default:
         return 'default';
     }
-  };
-
-  // Get subject info from section
-  const getAttendanceSubjectInfo = (sectionId: number) => {
-    const section = sections.find(s => s.id === sectionId);
-    if (section && section.subject) {
-      return {
-        code: section.subject.code,
-        name: section.subject.name,
-      };
-    }
-    return { code: 'N/A', name: 'Unknown Subject' };
   };
 
   if (loading) {
@@ -144,12 +126,11 @@ const Attendance: React.FC = () => {
             </TableHeader>
             <TableBody>
               {attendance.map((record) => {
-                const subjectInfo = getAttendanceSubjectInfo(record.section_id);
                 return (
                   <TableRow key={record.id}>
                     <TableCell>{record.date}</TableCell>
-                    <TableCell className="font-medium">{subjectInfo.code}</TableCell>
-                    <TableCell>{subjectInfo.name}</TableCell>
+                    <TableCell className="font-medium">{record.subject_code}</TableCell>
+                    <TableCell>{record.subject_name}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-2">
                         {getStatusIcon(record.status)}
@@ -167,6 +148,13 @@ const Attendance: React.FC = () => {
                   </TableRow>
                 );
               })}
+              {attendance.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    No attendance records found.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

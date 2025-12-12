@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/services/api';
+import api from '@/services/apiClient';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,8 +21,8 @@ const Grades: React.FC = () => {
         setLoading(true);
         
         const [gradesRes, sectionsRes] = await Promise.all([
-          api.students.getGrades(user.id),
-          api.sections.getAll()
+          api.get(`/api/students/${user.id}/grades`),
+          api.get('/api/sections')
         ]);
 
         setGrades(gradesRes.data || []);
@@ -39,33 +39,17 @@ const Grades: React.FC = () => {
 
   // Filter grades for student and calculate average
   const averageGrade = grades.length > 0
-    ? Math.round(grades.reduce((acc, g) => acc + (g.final_grade || 0), 0) / grades.length)
+    ? parseFloat((grades.reduce((acc, g) => acc + (g.final_grade || 0), 0) / grades.length).toFixed(1))
     : 0;
 
   const getGradeColor = (grade: number) => {
-    if (grade >= 90) return 'text-success';
-    if (grade >= 80) return 'text-primary';
-    if (grade >= 70) return 'text-warning';
-    return 'text-destructive';
+    if (grade <= 3.0) return 'text-success'; // PASSED
+    return 'text-destructive'; // FAILED
   };
 
   const getGradeBadge = (grade: number): { label: string; variant: 'success' | 'default' | 'secondary' | 'destructive' } => {
-    if (grade >= 90) return { label: 'Excellent', variant: 'success' };
-    if (grade >= 80) return { label: 'Good', variant: 'default' };
-    if (grade >= 70) return { label: 'Fair', variant: 'secondary' };
-    return { label: 'Needs Improvement', variant: 'destructive' };
-  };
-
-  // Get subject info from section
-  const getGradeSubjectInfo = (sectionId: number) => {
-    const section = sections.find(s => s.id === sectionId);
-    if (section && section.subject) {
-      return {
-        code: section.subject.code,
-        name: section.subject.name,
-      };
-    }
-    return { code: 'N/A', name: 'Unknown Subject' };
+    if (grade <= 3.0) return { label: 'PASSED', variant: 'success' };
+    return { label: 'FAILED', variant: 'destructive' };
   };
 
   if (loading) {
@@ -127,12 +111,11 @@ const Grades: React.FC = () => {
             </TableHeader>
             <TableBody>
               {grades.map((grade) => {
-                const subjectInfo = getGradeSubjectInfo(grade.section_id);
                 const finalGrade = grade.final_grade || 0;
                 return (
                   <TableRow key={grade.id}>
-                    <TableCell className="font-medium">{subjectInfo.code}</TableCell>
-                    <TableCell>{subjectInfo.name}</TableCell>
+                    <TableCell className="font-medium">{grade.subject_code}</TableCell>
+                    <TableCell>{grade.subject_name}</TableCell>
                     <TableCell className="text-center">{grade.midterm || '-'}</TableCell>
                     <TableCell className="text-center">{grade.finals || '-'}</TableCell>
                     <TableCell className={cn('text-center font-bold', getGradeColor(finalGrade))}>
@@ -140,7 +123,7 @@ const Grades: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={getGradeBadge(finalGrade).variant}>
-                        {grade.remarks || grade.status}
+                        {grade.remarks || 'N/A'}
                       </Badge>
                     </TableCell>
                   </TableRow>
