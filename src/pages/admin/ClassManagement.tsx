@@ -65,6 +65,12 @@ const daysOfWeek = [
   { value: "7", label: "Sunday" },
 ];
 
+type ScheduleForm = {
+  day: string;
+  timeStart: string;
+  timeEnd: string;
+};
+
 const ClassManagement: React.FC = () => {
   const { toast } = useToast();
   const location = useLocation();
@@ -105,9 +111,7 @@ const ClassManagement: React.FC = () => {
     department_id: "",
     section_id: "",
     teacher_id: "",
-    day: "",
-    timeStart: "",
-    timeEnd: "",
+    schedules: [{ day: "", timeStart: "", timeEnd: "" }] as ScheduleForm[],
   });
 
   const openManageStudents = async (cls: ClassModel) => {
@@ -153,19 +157,19 @@ const ClassManagement: React.FC = () => {
     if (!selectedClass) return;
     try {
       setManageStudentsLoading(true);
-      
-      console.log('Saving class students:', {
+
+      console.log("Saving class students:", {
         classId: selectedClass.id,
         selectedStudentIds: selectedStudentIds,
-        classInfo: selectedClass
+        classInfo: selectedClass,
       });
-      
+
       const result = await classApi.updateClass(selectedClass.id as number, {
         studentIds: selectedStudentIds,
         skipSectionStudents: true,
       });
-      
-      console.log('Update class result:', result);
+
+      console.log("Update class result:", result);
 
       toast({
         title: "Students Updated",
@@ -179,7 +183,11 @@ const ClassManagement: React.FC = () => {
       const status = error?.response?.status;
       const message =
         error?.response?.data?.message || error?.message || "Unknown error";
-      console.error("Failed to save class students:", { status, message, error });
+      console.error("Failed to save class students:", {
+        status,
+        message,
+        error,
+      });
       toast({
         title: "Error",
         description:
@@ -254,13 +262,17 @@ const ClassManagement: React.FC = () => {
     if (location.state?.subjectFilter) {
       const { subjectFilter } = location.state;
       setSubjectFilter(subjectFilter);
-      
+
       // Pre-fill the form with the subject filter
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
         subject_id: String(subjectFilter.id),
-        department_id: subjects.find(s => s.id === subjectFilter.id)?.department_id ? 
-          String(subjects.find(s => s.id === subjectFilter.id)?.department_id) : ""
+        department_id: subjects.find((s) => s.id === subjectFilter.id)
+          ?.department_id
+          ? String(
+              subjects.find((s) => s.id === subjectFilter.id)?.department_id
+            )
+          : "",
       }));
     }
   }, [location.state, subjects]);
@@ -271,9 +283,7 @@ const ClassManagement: React.FC = () => {
       department_id: "",
       section_id: "",
       teacher_id: "",
-      day: "",
-      timeStart: "",
-      timeEnd: "",
+      schedules: [{ day: "", timeStart: "", timeEnd: "" }],
     });
     setEditingClassId(null);
   };
@@ -290,16 +300,20 @@ const ClassManagement: React.FC = () => {
   };
 
   const handleEditClass = (cls: ClassModel) => {
-    const firstSchedule = cls.schedules?.[0];
     setEditingClassId(cls.id as number);
     setForm({
       subject_id: String(cls.subject.id),
       department_id: cls.department_id ? String(cls.department_id) : "",
       section_id: cls.section ? String(cls.section.id) : "",
       teacher_id: String(cls.teacher.id),
-      day: firstSchedule ? String(firstSchedule.day) : "",
-      timeStart: firstSchedule?.timeStart || "",
-      timeEnd: firstSchedule?.timeEnd || "",
+      schedules:
+        cls.schedules && cls.schedules.length > 0
+          ? cls.schedules.map((s) => ({
+              day: String(s.day),
+              timeStart: s.timeStart || "",
+              timeEnd: s.timeEnd || "",
+            }))
+          : [{ day: "", timeStart: "", timeEnd: "" }],
     });
     setIsClassDialogOpen(true);
   };
@@ -319,7 +333,7 @@ const ClassManagement: React.FC = () => {
       });
 
       // Emit event to notify TeacherManagement about class assignment changes
-      eventBus.emit('class-assignment-changed');
+      eventBus.emit("class-assignment-changed");
 
       fetchClasses(classesPage);
     } catch (error) {
@@ -341,16 +355,110 @@ const ClassManagement: React.FC = () => {
       return;
     }
 
+    if (!form.section_id) {
+      toast({
+        title: "Missing section",
+        description: "Please select a section.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const schedulesWithAnyValue = (form.schedules || []).filter(
+      (s) => s.day || s.timeStart || s.timeEnd
+    );
+    const hasPartialSchedule = schedulesWithAnyValue.some(
+      (s) => !(s.day && s.timeStart && s.timeEnd)
+    );
+    const hasAtLeastOneCompleteSchedule = schedulesWithAnyValue.some(
+      (s) => s.day && s.timeStart && s.timeEnd
+    );
+
     if (
       !form.subject_id ||
       !form.teacher_id ||
-      !form.day ||
-      !form.timeStart ||
-      !form.timeEnd
+      !hasAtLeastOneCompleteSchedule
     ) {
       toast({
         title: "Missing information",
-        description: "Please fill in subject, teacher, day, and time.",
+        description:
+          "Please fill in subject, teacher, and at least one complete schedule.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (hasPartialSchedule) {
+      toast({
+        title: "Incomplete schedule",
+        description: "Please complete or remove the partially filled schedule.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const completeSchedules = schedulesWithAnyValue.filter(
+      (s) => s.day && s.timeStart && s.timeEnd
+    );
+
+    const toMinutes = (time: string) => {
+      const [h, m] = time.split(":").map((n) => Number(n));
+      return h * 60 + m;
+    };
+
+    const hasInvalidRange = completeSchedules.some(
+      (s) => toMinutes(s.timeStart) >= toMinutes(s.timeEnd)
+    );
+    if (hasInvalidRange) {
+      toast({
+        title: "Invalid time range",
+        description: "Time start must be earlier than time end.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const scheduleKey = (s: any) => `${s.day}|${s.timeStart}|${s.timeEnd}`;
+    const seen = new Set<string>();
+    const hasDuplicate = completeSchedules.some((s) => {
+      const key = scheduleKey(s);
+      if (seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+    if (hasDuplicate) {
+      toast({
+        title: "Duplicate schedule",
+        description: "Remove duplicate schedule entries (same day and time).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const byDay = completeSchedules.reduce<Record<string, any[]>>((acc, s) => {
+      const day = String(s.day);
+      acc[day] = acc[day] || [];
+      acc[day].push(s);
+      return acc;
+    }, {});
+
+    const hasOverlap = Object.values(byDay).some((list) => {
+      const sorted = [...list].sort(
+        (a, b) => toMinutes(a.timeStart) - toMinutes(b.timeStart)
+      );
+      for (let i = 1; i < sorted.length; i++) {
+        const prevEnd = toMinutes(sorted[i - 1].timeEnd);
+        const currStart = toMinutes(sorted[i].timeStart);
+        if (currStart < prevEnd) return true;
+      }
+      return false;
+    });
+
+    if (hasOverlap) {
+      toast({
+        title: "Overlapping schedules",
+        description:
+          "Schedules on the same day must not overlap in time. Please adjust the time ranges.",
         variant: "destructive",
       });
       return;
@@ -361,15 +469,13 @@ const ClassManagement: React.FC = () => {
       department_id: form.department_id
         ? Number(form.department_id)
         : undefined,
-      section_id: form.section_id ? Number(form.section_id) : undefined,
+      section_id: Number(form.section_id),
       teacher_id: Number(form.teacher_id),
-      schedules: [
-        {
-          day: Number(form.day),
-          timeStart: form.timeStart,
-          timeEnd: form.timeEnd,
-        },
-      ],
+      schedules: completeSchedules.map((s) => ({
+        day: Number(s.day),
+        timeStart: s.timeStart,
+        timeEnd: s.timeEnd,
+      })),
     };
 
     try {
@@ -390,7 +496,7 @@ const ClassManagement: React.FC = () => {
       }
 
       // Emit event to notify TeacherManagement about class assignment changes
-      eventBus.emit('class-assignment-changed');
+      eventBus.emit("class-assignment-changed");
 
       resetForm();
       setIsClassDialogOpen(false);
@@ -409,7 +515,7 @@ const ClassManagement: React.FC = () => {
         });
 
         // Emit event to notify TeacherManagement about class assignment changes
-        eventBus.emit('class-assignment-changed');
+        eventBus.emit("class-assignment-changed");
 
         resetForm();
         setIsClassDialogOpen(false);
@@ -460,6 +566,7 @@ const ClassManagement: React.FC = () => {
             </div>
           )}
         </div>
+
         <Dialog open={isClassDialogOpen} onOpenChange={setIsClassDialogOpen}>
           <DialogTrigger asChild>
             <Button
@@ -471,7 +578,7 @@ const ClassManagement: React.FC = () => {
               New Class
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="w-[95vw] max-w-6xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingClassId ? "Update Class" : "Create New Class"}
@@ -481,182 +588,267 @@ const ClassManagement: React.FC = () => {
                 this class.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Department</label>
-                <Select
-                  value={form.department_id}
-                  onValueChange={(value) =>
-                    setForm((f) => ({
-                      ...f,
-                      department_id: value,
-                      section_id: "",
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept.id} value={String(dept.id)}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Subject</label>
-                <Select
-                  value={form.subject_id}
-                  disabled={!form.department_id}
-                  onValueChange={(value) =>
-                    setForm((f) => ({ ...f, subject_id: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        form.department_id
-                          ? "Select subject"
-                          : "Select department first"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects
-                      .filter((subject) => {
-                        if (!form.department_id) return false;
-                        return (
-                          subject.department_id === Number(form.department_id)
-                        );
-                      })
-                      .map((subject) => (
-                        <SelectItem key={subject.id} value={String(subject.id)}>
-                          {subject.code} - {subject.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Section (optional)
-                </label>
-                <Select
-                  value={form.section_id}
-                  disabled={!form.department_id}
-                  onValueChange={(value) =>
-                    setForm((f) => ({ ...f, section_id: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        form.department_id
-                          ? "Select section"
-                          : "Select department first"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sections
-                      .filter((section) => {
-                        if (!form.department_id) return false;
-                        return (
-                          section.department_id === Number(form.department_id)
-                        );
-                      })
-                      .map((section) => (
-                        <SelectItem key={section.id} value={String(section.id)}>
-                          {section.name} - {section.department?.name || ""}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Teacher</label>
-                <Select
-                  value={form.teacher_id}
-                  disabled={!form.department_id}
-                  onValueChange={(value) =>
-                    setForm((f) => ({ ...f, teacher_id: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select teacher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers
-                      .filter((teacher) => {
-                        if (!form.department_id) return false;
-                        return (
-                          teacher.department_id === Number(form.department_id)
-                        );
-                      })
-                      .map((teacher) => (
-                        <SelectItem key={teacher.id} value={String(teacher.id)}>
-                          {teacher.first_name} {teacher.last_name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="space-y-4 py-4 w-full">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-1">
-                    <Calendar className="w-4 h-4" /> Day
-                  </label>
+                  <label className="text-sm font-medium">Department</label>
                   <Select
-                    value={form.day}
-                    disabled={!form.department_id}
+                    value={form.department_id}
                     onValueChange={(value) =>
-                      setForm((f) => ({ ...f, day: value }))
+                      setForm((f) => ({
+                        ...f,
+                        department_id: value,
+                        section_id: "",
+                      }))
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      {daysOfWeek.map((day) => (
-                        <SelectItem key={day.value} value={day.value}>
-                          {day.label}
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={String(dept.id)}>
+                          {dept.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-1">
-                    <Clock className="w-4 h-4" /> Time Start
-                  </label>
-                  <Input
-                    type="time"
-                    value={form.timeStart}
+                  <label className="text-sm font-medium">Subject</label>
+                  <Select
+                    value={form.subject_id}
                     disabled={!form.department_id}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, timeStart: e.target.value }))
+                    onValueChange={(value) =>
+                      setForm((f) => ({ ...f, subject_id: value }))
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          form.department_id
+                            ? "Select subject"
+                            : "Select department first"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects
+                        .filter((subject) => {
+                          if (!form.department_id) return false;
+                          return (
+                            subject.department_id === Number(form.department_id)
+                          );
+                        })
+                        .map((subject) => (
+                          <SelectItem
+                            key={subject.id}
+                            value={String(subject.id)}
+                          >
+                            {subject.code} - {subject.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-1">
-                    <Clock className="w-4 h-4" /> Time End
-                  </label>
-                  <Input
-                    type="time"
-                    value={form.timeEnd}
+                  <label className="text-sm font-medium">Section</label>
+                  <Select
+                    value={form.section_id}
                     disabled={!form.department_id}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, timeEnd: e.target.value }))
+                    onValueChange={(value) =>
+                      setForm((f) => ({ ...f, section_id: value }))
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          form.department_id
+                            ? "Select section"
+                            : "Select department first"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sections
+                        .filter((section) => {
+                          if (!form.department_id) return false;
+                          return (
+                            section.department_id === Number(form.department_id)
+                          );
+                        })
+                        .map((section) => (
+                          <SelectItem
+                            key={section.id}
+                            value={String(section.id)}
+                          >
+                            {section.name} - {section.department?.name || ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Teacher</label>
+                  <Select
+                    value={form.teacher_id}
+                    disabled={!form.department_id}
+                    onValueChange={(value) =>
+                      setForm((f) => ({ ...f, teacher_id: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teachers
+                        .filter((teacher) => {
+                          if (!form.department_id) return false;
+                          return (
+                            teacher.department_id === Number(form.department_id)
+                          );
+                        })
+                        .map((teacher) => (
+                          <SelectItem
+                            key={teacher.id}
+                            value={String(teacher.id)}
+                          >
+                            {teacher.first_name} {teacher.last_name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-3 w-full">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">Schedules</div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!form.department_id}
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        schedules: [
+                          { day: "", timeStart: "", timeEnd: "" },
+                          ...(f.schedules || []),
+                        ],
+                      }))
+                    }
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add schedule
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {(form.schedules || []).map((schedule, index) => (
+                    <div
+                      key={index}
+                      className="rounded-md border p-3 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">
+                          Schedule {index + 1}
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive"
+                          disabled={(form.schedules || []).length <= 1}
+                          onClick={() =>
+                            setForm((f) => ({
+                              ...f,
+                              schedules: (f.schedules || []).filter(
+                                (_, i) => i !== index
+                              ),
+                            }))
+                          }
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium flex items-center gap-1">
+                            <Calendar className="w-4 h-4" /> Day
+                          </label>
+                          <Select
+                            value={schedule.day}
+                            disabled={!form.department_id}
+                            onValueChange={(value) =>
+                              setForm((f) => ({
+                                ...f,
+                                schedules: (f.schedules || []).map((s, i) =>
+                                  i === index ? { ...s, day: value } : s
+                                ),
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select day" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {daysOfWeek.map((day) => (
+                                <SelectItem key={day.value} value={day.value}>
+                                  {day.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium flex items-center gap-1">
+                            <Clock className="w-4 h-4" /> Time Start
+                          </label>
+                          <Input
+                            type="time"
+                            value={schedule.timeStart}
+                            disabled={!form.department_id}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                schedules: (f.schedules || []).map((s, i) =>
+                                  i === index
+                                    ? { ...s, timeStart: e.target.value }
+                                    : s
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium flex items-center gap-1">
+                            <Clock className="w-4 h-4" /> Time End
+                          </label>
+                          <Input
+                            type="time"
+                            value={schedule.timeEnd}
+                            disabled={!form.department_id}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                schedules: (f.schedules || []).map((s, i) =>
+                                  i === index
+                                    ? { ...s, timeEnd: e.target.value }
+                                    : s
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -689,7 +881,10 @@ const ClassManagement: React.FC = () => {
         </Dialog>
       </div>
 
-      <Dialog open={isManageStudentsOpen} onOpenChange={setIsManageStudentsOpen}>
+      <Dialog
+        open={isManageStudentsOpen}
+        onOpenChange={setIsManageStudentsOpen}
+      >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Manage Students</DialogTitle>
@@ -731,7 +926,8 @@ const ClassManagement: React.FC = () => {
                       return (
                         `${s.first_name} ${s.last_name}`
                           .toLowerCase()
-                          .includes(term) || s.email.toLowerCase().includes(term)
+                          .includes(term) ||
+                        s.email.toLowerCase().includes(term)
                       );
                     })
                     .map((s) => (
@@ -775,7 +971,8 @@ const ClassManagement: React.FC = () => {
                       return (
                         `${s.first_name} ${s.last_name}`
                           .toLowerCase()
-                          .includes(term) || s.email.toLowerCase().includes(term)
+                          .includes(term) ||
+                        s.email.toLowerCase().includes(term)
                       );
                     })
                     .map((s) => (
@@ -876,12 +1073,14 @@ const ClassManagement: React.FC = () => {
               )}
 
               {classes.map((cls) => {
-                const firstSchedule = cls.schedules?.[0];
-                const isHighlighted = subjectFilter && cls.subject.id === subjectFilter.id;
+                const isHighlighted =
+                  subjectFilter && cls.subject.id === subjectFilter.id;
                 return (
-                  <TableRow 
-                    key={cls.id} 
-                    className={isHighlighted ? "bg-primary/5 border-primary/20" : ""}
+                  <TableRow
+                    key={cls.id}
+                    className={
+                      isHighlighted ? "bg-primary/5 border-primary/20" : ""
+                    }
                   >
                     <TableCell>
                       <div className="flex flex-col">
@@ -894,16 +1093,22 @@ const ClassManagement: React.FC = () => {
                     <TableCell>{cls.department?.name || ""}</TableCell>
                     <TableCell>{cls.section?.name || "-"}</TableCell>
                     <TableCell>
-                      {cls.teacher ? `${cls.teacher.first_name} ${cls.teacher.last_name}` : "-"}
+                      {cls.teacher
+                        ? `${cls.teacher.first_name} ${cls.teacher.last_name}`
+                        : "-"}
                     </TableCell>
                     <TableCell>
-                      {firstSchedule ? (
-                        <div className="text-sm">
-                          <div>{getDayLabel(firstSchedule.day)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {format24HourTo12HourTime(firstSchedule.timeStart)}{" "}
-                            - {format24HourTo12HourTime(firstSchedule.timeEnd)}
-                          </div>
+                      {cls.schedules && cls.schedules.length > 0 ? (
+                        <div className="text-sm space-y-1">
+                          {cls.schedules.map((s, idx) => (
+                            <div key={idx}>
+                              <div>{getDayLabel(s.day)}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {format24HourTo12HourTime(s.timeStart)} -{" "}
+                                {format24HourTo12HourTime(s.timeEnd)}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">

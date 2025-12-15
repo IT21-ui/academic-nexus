@@ -25,6 +25,14 @@ export const classApi = {
     return response.data;
   },
 
+  // Get all classes by teacher
+  async getClassesByTeacher(teacherId: number) {
+    const response = await api.get<ApiResponse<Class[]>>(
+      `/api/teachers/${teacherId}/classes`
+    );
+    return response.data;
+  },
+
   // Create a new class
   async createClass(data: {
     subject_id: number;
@@ -38,7 +46,14 @@ export const classApi = {
     }[];
     student_ids?: number[];
   }) {
-    const response = await api.post<ApiResponse<Class>>("/api/classes", data);
+    const response = await api.post<ApiResponse<Class>>("/api/classes", {
+      ...data,
+      schedules: (data.schedules || []).map((s) => ({
+        day: s.day,
+        timeStart: s.timeStart,
+        timeEnd: s.timeEnd,
+      })),
+    } as any);
     return response.data;
   },
 
@@ -59,9 +74,18 @@ export const classApi = {
       skipSectionStudents?: boolean;
     }>
   ) {
+    const payload: any = { ...data };
+    if (payload.schedules) {
+      payload.schedules = (payload.schedules || []).map((s: any) => ({
+        day: s.day,
+        timeStart: s.timeStart,
+        timeEnd: s.timeEnd,
+      }));
+    }
+
     const response = await api.put<ApiResponse<Class>>(
       `/api/classes/${id}`,
-      data
+      payload
     );
     return response.data;
   },

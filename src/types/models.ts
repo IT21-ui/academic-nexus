@@ -21,6 +21,8 @@ export interface User {
 
 export interface Student extends User {
   role: "student";
+  grade?: Grade;
+  grades?: Grade[];
 }
 
 export interface Teacher extends User {
@@ -97,7 +99,6 @@ export interface SubjectAssignment {
 export interface Grade {
   id: number;
   student_id: number;
-  section_id: number;
   midterm?: number;
   finals?: number;
   final_grade?: number;
@@ -107,7 +108,7 @@ export interface Grade {
   updated_at?: string;
   // Relationships
   student?: Student;
-  section?: Section;
+  class?: Class;
 }
 
 export interface Attendance {
