@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             </div>
             <div>
               <h1 className="text-lg font-bold text-sidebar-foreground">
-                EduSIS
+                TrackED
               </h1>
               <p className="text-xs text-sidebar-foreground/70">
                 Student Information

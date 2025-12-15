@@ -32,7 +32,17 @@ import {
 } from "@/components/ui/select";
 import { Search, UserPlus, Check, X, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import userApi from "@/services/userApi";
+import {
+  useUsers,
+  useStudents,
+  useTeachers,
+  useRegistrationRequests,
+  useCreateUser,
+  useUpdateUser,
+  useDeleteUser,
+  useApproveRegistrationRequest,
+  useRejectRegistrationRequest,
+} from "@/hooks/useUsers";
 import type {
   Student,
   Teacher,
@@ -40,19 +50,27 @@ import type {
   Department,
   Section,
   User,
+  Subject,
+  UserRole,
 } from "@/types/models";
 import departmentApi from "@/services/departmentApi";
 import sectionApi from "@/services/sectionApi";
+import classApi from "@/services/classApi";
 import { yearLevels } from "@/lib/contants";
 
 const UserManagement: React.FC = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [students, setStudents] = useState<User[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
-  const [pendingRegistrations, setPendingRegistrations] = useState<
-    RegistrationRequest[]
-  >([]);
+  const [pendingRegistrations, setPendingRegistrations] = useState<RegistrationRequest[]>([]);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isSubjectsDialogOpen, setIsSubjectsDialogOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+
   const [studentsPage, setStudentsPage] = useState(1);
   const [studentsLastPage, setStudentsLastPage] = useState(1);
   const [studentsTotal, setStudentsTotal] = useState(0);
@@ -62,102 +80,104 @@ const UserManagement: React.FC = () => {
   const [pendingPage, setPendingPage] = useState(1);
   const [pendingLastPage, setPendingLastPage] = useState(1);
   const [pendingTotal, setPendingTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
-  const [selectedSectionId, setSelectedSectionId] = useState<string>("");
   const [newUser, setNewUser] = useState({
     first_name: "",
     last_name: "",
     email: "",
-    role: "student" as "student" | "instructor" | "admin",
+    role: "student" as UserRole,
     password: "",
+    department_id: "",
+    section_id: "",
     year_level: "",
   });
-  const [editingUser, setEditingUser] = useState<{
-    id: number;
-    first_name: string;
-    last_name: string;
-    email: string;
-    role: "student" | "instructor" | "admin";
-    year_level?: string;
-    department_id?: number;
-    section_id?: number;
-  } | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const fetchData = async (
-    pendingPageParam: number = pendingPage,
-    studentsPageParam: number = studentsPage,
-    teachersPageParam: number = teachersPage
-  ) => {
-    try {
-      setLoading(true);
+  // Enhanced subject interface with sections count
+  interface EnhancedSubject extends Subject {
+    sectionsCount: number;
+    classes: any[];
+  }
 
-      const [
-        studentsRes,
-        teachersRes,
-        pendingRes,
-        departmentsRes,
-        sectionsRes,
-      ] = await Promise.all([
-        userApi.getStudents(studentsPageParam, 10),
-        userApi.getTeachers(teachersPageParam, 10),
-        userApi.getRegistrationRequests("pending", pendingPageParam, 10),
-        departmentApi.getDepartments(),
-        sectionApi.getSections(),
-      ]);
+  // Enhanced user interface with proper subjects typing
+  interface EnhancedUser extends User {
+    subjects?: EnhancedSubject[];
+  }
 
-      if (studentsRes && studentsRes.data) {
-        setStudents(studentsRes.data);
-        setStudentsPage(studentsRes.current_page);
-        setStudentsLastPage(studentsRes.last_page);
-        setStudentsTotal(studentsRes.total);
-      }
+  // Use cached queries
+  const { data: usersData, isLoading: usersLoading } = useUsers(
+    currentPage,
+    10,
+    undefined,
+    searchTerm
+  );
+  const { data: studentsData, isLoading: studentsLoading } = useStudents(
+    studentsPage,
+    10,
+    searchTerm
+  );
+  const { data: teachersData, isLoading: teachersLoading } = useTeachers(
+    teachersPage,
+    10,
+    searchTerm
+  );
+  const { data: registrationRequestsData, isLoading: pendingLoading } =
+    useRegistrationRequests("pending", pendingPage, 10);
 
-      console.log(teachersRes);
+  // Mutations
+  const createUserMutation = useCreateUser();
+  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
+  const approveRequestMutation = useApproveRegistrationRequest();
+  const rejectRequestMutation = useRejectRegistrationRequest();
 
-      if (teachersRes && teachersRes.data) {
-        setTeachers(teachersRes.data);
-        setTeachersPage(teachersRes.current_page);
-        setTeachersLastPage(teachersRes.last_page);
-        setTeachersTotal(teachersRes.total);
-      }
-
-      if (pendingRes && pendingRes.data) {
-        setPendingRegistrations(pendingRes.data);
-        setPendingPage(pendingRes.current_page);
-        setPendingLastPage(pendingRes.last_page);
-        setPendingTotal(pendingRes.total);
-      }
-
-      if (departmentsRes.data) {
+  // Load departments and sections (these don't change frequently)
+  useEffect(() => {
+    const loadDepartmentsAndSections = async () => {
+      try {
+        const [departmentsRes, sectionsRes] = await Promise.all([
+          departmentApi.getDepartments(),
+          sectionApi.getSections(),
+        ]);
         setDepartments(departmentsRes.data);
-      }
-
-      if (sectionsRes.data) {
         setSections(sectionsRes.data);
+      } catch (error) {
+        console.error("Error loading departments/sections:", error);
       }
-    } catch (error) {
-      toast({
-        title: "Error loading users",
-        description:
-          "There was a problem fetching user data. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    };
+    loadDepartmentsAndSections();
+  }, []);
+
+  // Update data states when cached data changes
+  useEffect(() => {
+    if (studentsData) {
+      setStudents(studentsData.data);
+      setStudentsLastPage(studentsData.last_page);
+      setStudentsTotal(studentsData.total);
     }
-  };
+  }, [studentsData]);
 
   useEffect(() => {
-    fetchData(1, 1, 1);
-  }, []);
+    if (teachersData) {
+      setTeachers(teachersData.data);
+      setTeachersLastPage(teachersData.last_page);
+      setTeachersTotal(teachersData.total);
+    }
+  }, [teachersData]);
+
+  useEffect(() => {
+    if (registrationRequestsData) {
+      setPendingRegistrations(registrationRequestsData.data);
+      setPendingLastPage(registrationRequestsData.last_page);
+      setPendingTotal(registrationRequestsData.total);
+    }
+  }, [registrationRequestsData]);
 
   useEffect(() => {
     // Reset department/section when role changes
@@ -195,7 +215,7 @@ const UserManagement: React.FC = () => {
         updateData.department_id = editingUser.department_id;
       }
 
-      await userApi.updateUser(editingUser.id, updateData);
+      await updateUserMutation.mutateAsync({ id: editingUser.id, userData: updateData });
       
       toast({
         title: "User updated",
@@ -203,7 +223,6 @@ const UserManagement: React.FC = () => {
       });
       
       setIsEditDialogOpen(false);
-      await fetchData();
     } catch (error) {
       console.error("Error updating user:", error);
       toast({
@@ -223,13 +242,19 @@ const UserManagement: React.FC = () => {
       last_name: user.last_name,
       email: user.email,
       role: user.role,
-      year_level: user.year_level || '',
+      year_level: user.year_level,
       department_id: user.department_id,
       section_id: user.section_id,
+      status: user.status || 'approved',
     });
     setSelectedDepartmentId(user.department_id?.toString() || '');
     setSelectedSectionId(user.section_id?.toString() || '');
     setIsEditDialogOpen(true);
+  };
+
+  const handleSubjectsClick = (teacher: User) => {
+    setSelectedTeacher(teacher);
+    setIsSubjectsDialogOpen(true);
   };
 
   const handleCreateUser = async () => {
@@ -277,99 +302,40 @@ const UserManagement: React.FC = () => {
           ? Number(selectedSectionId)
           : undefined;
 
-      // Optimistic update - add user to local state immediately
-      const optimisticUser: User = {
-        id: Date.now(), // Temporary ID
+      await createUserMutation.mutateAsync({
         first_name: newUser.first_name,
         last_name: newUser.last_name,
         email: newUser.email,
         role: newUser.role,
-        status: "approved" as const,
+        password: newUser.password,
         department_id,
         section_id,
         year_level: newUser.year_level ? Number(newUser.year_level) : undefined,
-        department: departments.find(d => d.id === department_id),
-        created_at: new Date().toISOString(),
-      };
-
-      // Add to appropriate list immediately
-      if (newUser.role === "student") {
-        setStudents(prev => [optimisticUser, ...prev]);
-        setStudentsTotal(prev => prev + 1);
-      } else if (newUser.role === "instructor") {
-        setTeachers(prev => [optimisticUser, ...prev]);
-        setTeachersTotal(prev => prev + 1);
-      }
-
-      const createdUser = await userApi.createUser({
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
-        email: newUser.email,
-        role: newUser.role,
-        password: newUser.password,
-        status: "approved",
-        department_id,
-        section_id,
-        year_level: newUser.year_level ? Number(newUser.year_level) : null,
       });
-
-      if (createdUser) {
-        toast({
-          title: "User created",
-          description: `${createdUser.first_name} ${createdUser.last_name} has been created successfully.`,
-        });
-        setIsAddUserOpen(false);
-        setNewUser({
-          first_name: "",
-          last_name: "",
-          email: "",
-          role: "student",
-          password: "",
-          year_level: "",
-        });
-        setSelectedDepartmentId("");
-        setSelectedSectionId("");
-        
-        // Refresh data to get the real user with correct ID
-        await fetchData(1, 1, 1);
-      }
-    } catch (error: any) {
-      console.error("Error creating user:", error);
-      console.error("Error response:", error.response?.data);
-      console.error("Error status:", error.response?.status);
-      console.error("User data being sent:", {
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
-        email: newUser.email,
-        role: newUser.role,
-        password: newUser.password,
-        status: "approved",
-        department_id: newUser.role !== "admin" && selectedDepartmentId
-          ? Number(selectedDepartmentId)
-          : undefined,
-        section_id: newUser.role === "student" && selectedSectionId
-          ? Number(selectedSectionId)
-          : undefined,
-        year_level: newUser.year_level ? Number(newUser.year_level) : null,
-      });
-      
-      // If API call fails, remove the optimistic user
-      if (newUser.role === "student") {
-        setStudents(prev => prev.slice(1));
-        setStudentsTotal(prev => prev - 1);
-      } else if (newUser.role === "instructor") {
-        setTeachers(prev => prev.slice(1));
-        setTeachersTotal(prev => prev - 1);
-      }
-      
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          error.message || 
-                          "There was a problem creating the user. Please try again.";
       
       toast({
+        title: "User created",
+        description: "User has been created successfully.",
+      });
+      
+      setIsAddUserOpen(false);
+      setNewUser({
+        first_name: "",
+        last_name: "",
+        email: "",
+        role: "student",
+        password: "",
+        department_id: "",
+        section_id: "",
+        year_level: "",
+      });
+      setSelectedDepartmentId("");
+      setSelectedSectionId("");
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast({
         title: "Error creating user",
-        description: errorMessage,
+        description: "There was a problem creating the user. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -379,20 +345,17 @@ const UserManagement: React.FC = () => {
 
   const handleApprove = async (id: number) => {
     try {
-      await userApi.approveRegistrationRequest(id);
+      await approveRequestMutation.mutateAsync(id);
 
       toast({
         title: "User Approved",
-        description: "The registration request has been approved.",
+        description: "User has been approved successfully.",
       });
-
-      // Refresh lists to reflect updated status
-      fetchData();
     } catch (error) {
+      console.error("Error approving user:", error);
       toast({
         title: "Error approving user",
-        description:
-          "There was a problem approving this request. Please try again.",
+        description: "There was a problem approving the user. Please try again.",
         variant: "destructive",
       });
     }
@@ -400,21 +363,17 @@ const UserManagement: React.FC = () => {
 
   const handleDeny = async (id: number) => {
     try {
-      await userApi.rejectRegistrationRequest(id);
+      await rejectRequestMutation.mutateAsync({ id });
 
       toast({
         title: "User Denied",
-        description: "The registration request has been denied.",
-        variant: "destructive",
+        description: "User has been denied successfully.",
       });
-
-      // Refresh lists to reflect updated status
-      fetchData();
     } catch (error) {
+      console.error("Error denying user:", error);
       toast({
         title: "Error denying user",
-        description:
-          "There was a problem denying this request. Please try again.",
+        description: "There was a problem denying the user. Please try again.",
         variant: "destructive",
       });
     }
@@ -429,16 +388,14 @@ const UserManagement: React.FC = () => {
     if (!userToDelete) return;
 
     try {
-      await userApi.deleteUser(userToDelete.id);
+      await deleteUserMutation.mutateAsync(userToDelete.id);
 
       toast({
         title: "User Deleted",
         description: `${userToDelete.first_name} ${userToDelete.last_name} has been deleted.`,
       });
-
-      // Refresh lists to reflect updated data
-      fetchData();
     } catch (error) {
+      console.error("Error deleting user:", error);
       toast({
         title: "Error deleting user",
         description: "There was a problem deleting this user. Please try again.",
@@ -741,16 +698,16 @@ const UserManagement: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={pendingPage <= 1 || loading}
-                        onClick={() => fetchData(pendingPage - 1)}
+                        disabled={pendingPage <= 1 || pendingLoading}
+                        onClick={() => setPendingPage(pendingPage - 1)}
                       >
                         Previous
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={pendingPage >= pendingLastPage || loading}
-                        onClick={() => fetchData(pendingPage + 1)}
+                        disabled={pendingPage >= pendingLastPage || pendingLoading}
+                        onClick={() => setPendingPage(pendingPage + 1)}
                       >
                         Next
                       </Button>
@@ -863,20 +820,16 @@ const UserManagement: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={studentsPage <= 1 || loading}
-                      onClick={() =>
-                        fetchData(pendingPage, studentsPage - 1, teachersPage)
-                      }
+                      disabled={studentsPage <= 1 || studentsLoading}
+                      onClick={() => setStudentsPage(studentsPage - 1)}
                     >
                       Previous
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={studentsPage >= studentsLastPage || loading}
-                      onClick={() =>
-                        fetchData(pendingPage, studentsPage + 1, teachersPage)
-                      }
+                      disabled={studentsPage >= studentsLastPage || studentsLoading}
+                      onClick={() => setStudentsPage(studentsPage + 1)}
                     >
                       Next
                     </Button>
@@ -929,7 +882,13 @@ const UserManagement: React.FC = () => {
                       <TableCell>{instructor.email}</TableCell>
                       <TableCell>{instructor.department?.name || ""}</TableCell>
                       <TableCell>
-                        {instructor.subjects ? instructor.subjects.length : 0}
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-normal text-primary hover:underline"
+                          onClick={() => handleSubjectsClick(instructor)}
+                        >
+                          {instructor.subjects ? instructor.subjects.length : 0}
+                        </Button>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -965,20 +924,16 @@ const UserManagement: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={teachersPage <= 1 || loading}
-                      onClick={() =>
-                        fetchData(pendingPage, studentsPage, teachersPage - 1)
-                      }
+                      disabled={teachersPage <= 1 || teachersLoading}
+                      onClick={() => setTeachersPage(teachersPage - 1)}
                     >
                       Previous
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={teachersPage >= teachersLastPage || loading}
-                      onClick={() =>
-                        fetchData(pendingPage, studentsPage, teachersPage + 1)
-                      }
+                      disabled={teachersPage >= teachersLastPage || teachersLoading}
+                      onClick={() => setTeachersPage(teachersPage + 1)}
                     >
                       Next
                     </Button>
@@ -1111,9 +1066,9 @@ const UserManagement: React.FC = () => {
                     Year Level
                   </Label>
                   <Select
-                    value={editingUser?.year_level || ''}
+                    value={editingUser?.year_level?.toString() || ''}
                     onValueChange={(value) =>
-                      setEditingUser(prev => prev ? { ...prev, year_level: value } : null)
+                      setEditingUser(prev => prev ? { ...prev, year_level: parseInt(value) } : null)
                     }
                   >
                     <SelectTrigger className="col-span-3">
@@ -1174,6 +1129,58 @@ const UserManagement: React.FC = () => {
               onClick={handleDeleteConfirm}
             >
               Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Subjects Dialog */}
+      <Dialog open={isSubjectsDialogOpen} onOpenChange={setIsSubjectsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              Subjects - {selectedTeacher?.first_name} {selectedTeacher?.last_name}
+            </DialogTitle>
+            <DialogDescription>
+              List of subjects assigned to this instructor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedTeacher?.subjects && selectedTeacher.subjects.length > 0 ? (
+              <div className="space-y-3">
+                {selectedTeacher.subjects.map((subject: EnhancedSubject, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        {subject.name || 'Unknown Subject'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {subject.code || 'No Code'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {subject.sectionsCount || 0} section{(subject.sectionsCount || 0) !== 1 ? 's' : ''}
+                      </Badge>
+                      <Badge variant="secondary">
+                        {subject.units || 0} units
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                No subjects assigned to this instructor.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsSubjectsDialogOpen(false)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

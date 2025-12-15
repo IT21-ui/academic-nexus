@@ -6,9 +6,8 @@ import {
   RegistrationRequest,
   PaginatedResponse,
   ApiResponse,
+  UserRole,
 } from "@/types/models";
-
-type UserRole = "student" | "instructor" | "admin";
 
 // User Management
 export const userApi = {

@@ -179,7 +179,7 @@ const Register: React.FC = () => {
               <GraduationCap className="w-10 h-10" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold">EduSIS</h1>
+              <h1 className="text-4xl font-bold">TrackED</h1>
               <p className="text-primary-foreground/80">
                 Student Information System
               </p>
@@ -227,7 +227,7 @@ const Register: React.FC = () => {
               <GraduationCap className="w-7 h-7 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">EduSIS</h1>
+              <h1 className="text-2xl font-bold text-foreground">TrackED</h1>
               <p className="text-sm text-muted-foreground">
                 Student Information System
               </p>
@@ -285,7 +285,7 @@ const Register: React.FC = () => {
                     <Label htmlFor="firstName">First Name</Label>
                     <Input
                       id="firstName"
-                      placeholder="John"
+                      placeholder="Juan"
                       value={formData.firstName}
                       onChange={(e) =>
                         handleInputChange("firstName", e.target.value)
@@ -297,7 +297,7 @@ const Register: React.FC = () => {
                     <Label htmlFor="lastName">Last Name</Label>
                     <Input
                       id="lastName"
-                      placeholder="Doe"
+                      placeholder="Dela Cruz"
                       value={formData.lastName}
                       onChange={(e) =>
                         handleInputChange("lastName", e.target.value)
@@ -312,7 +312,7 @@ const Register: React.FC = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="john.doe@email.com"
+                    placeholder="JuanDelaCruz@email.com"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     required
@@ -320,11 +320,11 @@ const Register: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="phone">Mobile Number</Label>
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+1 (555) 123-4567"
+                    placeholder="+63 (555) 123-4567"
                     value={formData.phone}
                     onChange={(e) => handleInputChange("phone", e.target.value)}
                     required

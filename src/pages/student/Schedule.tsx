@@ -41,7 +41,11 @@ const Schedule: React.FC = () => {
   });
 
   if (loading) {
-    return <div className="p-6">Loading schedule...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading schedule...</div>
+      </div>
+    );
   }
 
   if (error) {

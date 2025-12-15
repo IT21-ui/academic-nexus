@@ -3,14 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/services/apiClient";
-import { BookOpen, Clock, MapPin, User } from "lucide-react";
+import { BookOpen, Clock, MapPin, User, Menu, Minimize, X } from "lucide-react";
 import type { Subject, Class } from "@/types/models";
+import { generateCorPdf } from "@/utils/corGenerator";
 
 const Subjects: React.FC = () => {
   const { user } = useAuth();
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   useEffect(() => {
     const fetchClassesData = async () => {
@@ -90,69 +92,73 @@ const Subjects: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">My Classes</h1>
-        <p className="text-muted-foreground">
-          Current semester enrolled classes
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {classes.map((classItem: any) => {
-          return (
-            <Card key={classItem.id} className="hover:shadow-soft transition-all">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <Badge variant="secondary" className="mb-2">
-                      {classItem.subject?.code || 'N/A'}
-                    </Badge>
-                    <CardTitle className="text-lg">{classItem.subject?.name || 'Unknown Subject'}</CardTitle>
+    <div className="p-4 space-y-4">
+      {/* Main Window Card */}
+      <Card className={`overflow-hidden border-0 shadow-lg transition-all duration-300 ${isMinimized ? 'h-auto' : ''}`}>
+        {/* Blue Header Bar */}
+        <div className="gradient-sidebar text-white px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Menu className="w-6 h-6 cursor-pointer hover:opacity-80" />
+            <h1 className="text-lg font-semibold">Subjects</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Minimize 
+              className="w-5 h-5 cursor-pointer hover:opacity-80" 
+              onClick={() => setIsMinimized(!isMinimized)}
+            />
+            <X className="w-5 h-5 cursor-pointer hover:opacity-80" />
+          </div>
+        </div>
+        
+        {/* Content Area - Only show when not minimized */}
+        {!isMinimized && (
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {classes.map((classItem: any) => (
+                <div key={classItem.id} className="border-b border-gray-200 pb-3 last:border-b-0">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-gray-700 font-medium">
+                      <BookOpen className="w-5 h-5 text-blue-600" />
+                      <span>{classItem.subject?.code || 'N/A'} ({classItem.section?.name || 'N/A'})</span>
+                    </div>
                   </div>
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <BookOpen className="w-5 h-5 text-primary" />
+                  <div className="flex items-center gap-2 mt-2 text-gray-600">
+                    <Clock className="w-4 h-4" />
+                    <span>
+                      {classItem.schedules && classItem.schedules.length > 0
+                        ? classItem.schedules
+                            .map(
+                              (s: any) =>
+                                `${formatTime(s.timeStart)}-${formatTime(s.timeEnd)}`
+                            )
+                            .join(", ")
+                        : "TBD"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-gray-600">
+                    <User className="w-4 h-4" />
+                    <span>
+                      {classItem.teacher
+                        ? `${classItem.teacher.first_name} ${classItem.teacher.last_name}`
+                        : "TBA"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-gray-600">
+                    <MapPin className="w-4 h-4" />
+                    <span>{classItem.room || "TBD"}</span>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="w-4 h-4" />
-                  <span>
-                    {classItem.teacher
-                      ? `${classItem.teacher.first_name} ${classItem.teacher.last_name}`
-                      : "TBA"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>
-                    {classItem.schedules && classItem.schedules.length > 0
-                      ? classItem.schedules
-                          .map(
-                            (s: any) =>
-                              `${getDayName(s.day)} ${formatTime(
-                                s.timeStart
-                              )}-${formatTime(s.timeEnd)}`
-                          )
-                          .join(", ")
-                      : "TBD"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>{classItem.room || "TBD"}</span>
-                </div>
-                <div className="pt-3 border-t border-border">
-                  <span className="text-sm font-medium text-foreground">
-                    {classItem.subject?.units || 0} Units
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              ))}
+            </div>
+            <button
+              onClick={() => generateCorPdf(user, classes)}
+              className="mt-4 w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors font-medium"
+            >
+              Generate COR PDF
+            </button>
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 };

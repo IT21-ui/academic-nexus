@@ -71,6 +71,23 @@ export const classApi = {
     const response = await api.delete<ApiResponse<null>>(`/api/classes/${id}`);
     return response.data;
   },
+
+  // Enroll a student in a class
+  async enrollStudent(classId: number, studentId: number) {
+    const response = await api.post<ApiResponse<null>>(
+      `/api/classes/${classId}/enroll`,
+      { student_id: studentId }
+    );
+    return response.data;
+  },
+
+  // Unenroll a student from a class
+  async unenrollStudent(classId: number, studentId: number) {
+    const response = await api.delete<ApiResponse<null>>(
+      `/api/classes/${classId}/unenroll/${studentId}`
+    );
+    return response.data;
+  },
 };
 
 export default classApi;

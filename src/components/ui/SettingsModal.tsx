@@ -144,10 +144,16 @@ export const SettingsModal: React.FC = () => {
         />
       </div>
       <div>
-        <Label htmlFor="studentId">Student ID</Label>
+        <Label htmlFor="userId">
+          {user?.role === 'admin' || user?.role === 'administrator' ? 'Admin ID' : 
+           user?.role === 'instructor' ? 'Instructor ID' : 'Student ID'}
+        </Label>
         <Input
-          id="studentId"
-          value={user?.id?.toString() || ''}
+          id="userId"
+          value={user?.id ? `${
+            user?.role === 'admin' || user?.role === 'administrator' ? 'AD' : 
+            user?.role === 'instructor' ? 'IN' : 'ST'
+          }${user.id.toString().padStart(3, '0')}` : ''}
           disabled
           className="bg-muted"
         />

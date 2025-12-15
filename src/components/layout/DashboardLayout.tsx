@@ -3,7 +3,7 @@ import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar } from "./Sidebar";
 import { cn } from "@/lib/utils";
-import { Search } from "lucide-react";
+import { Search, Calendar, UserCog, GraduationCap, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
@@ -24,6 +24,35 @@ export const DashboardLayout: React.FC = () => {
     day: "numeric",
   });
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const getRoleIcon = () => {
+    const role = user?.role?.toLowerCase();
+    if (role === "admin" || role === "administrator") {
+      return UserCog;
+    }
+    if (role === "instructor") {
+      return GraduationCap;
+    }
+    return BookOpen;
+  };
+
+  const getRoleGradient = () => {
+    const role = user?.role?.toLowerCase();
+    if (role === "admin" || role === "administrator") {
+      return "from-blue-600 to-purple-600";
+    }
+    if (role === "instructor") {
+      return "from-blue-600 to-purple-600";
+    }
+    return "from-blue-500 to-purple-600";
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar
@@ -40,11 +69,19 @@ export const DashboardLayout: React.FC = () => {
         {/* Header */}
         <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
           <div className="flex items-center justify-between px-6 py-4">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">
-                Welcome back, {user?.first_name + " " + user?.last_name}!
-              </h2>
-              <p className="text-sm text-muted-foreground">{currentDate}</p>
+            <div className="flex items-center gap-4">
+              <div className={`flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br ${getRoleGradient()} shadow-lg`}>
+                {React.createElement(getRoleIcon(), { className: "w-6 h-6 text-white" })}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  {getGreeting()}, {user?.first_name}! ✨
+                </h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground font-medium">{currentDate}</p>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">

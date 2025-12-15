@@ -1,17 +1,19 @@
 // Types matching Laravel backend models
 
+export type UserRole = "student" | "instructor" | "admin" | "administrator";
+
 export interface User {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
-  role: "student" | "instructor" | "admin" | "administrator";
+  role: UserRole;
   status: "pending" | "approved" | "denied";
   section_id?: number;
   department_id?: number;
   department?: Department;
   year_level?: number;
-  subjects?: [];
+  subjects?: Subject[];
   created_at?: string;
   updated_at?: string;
   classes_count?: number;
