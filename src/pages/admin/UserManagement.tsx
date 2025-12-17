@@ -143,7 +143,7 @@ const UserManagement: React.FC = () => {
       try {
         const [departmentsRes, sectionsRes] = await Promise.all([
           departmentApi.getDepartments(),
-          sectionApi.getSections(),
+          sectionApi.getSections(1, 1000), // Load more sections to ensure we get all
         ]);
         setDepartments(departmentsRes.data);
         setSections(sectionsRes.data);
@@ -153,6 +153,27 @@ const UserManagement: React.FC = () => {
     };
     loadDepartmentsAndSections();
   }, []);
+
+  // Load sections when department changes for student role
+  useEffect(() => {
+    if (newUser.role === "student" && selectedDepartmentId && newUser.year_level) {
+      const loadSectionsForDepartment = async () => {
+        try {
+          const sectionsRes = await sectionApi.getSections(
+            1, 
+            1000, 
+            "", 
+            Number(selectedDepartmentId),
+            Number(newUser.year_level)
+          );
+          setSections(sectionsRes.data);
+        } catch (error) {
+          console.error("Error loading sections for department:", error);
+        }
+      };
+      loadSectionsForDepartment();
+    }
+  }, [selectedDepartmentId, newUser.year_level, newUser.role]);
 
   // Update data states when cached data changes
   useEffect(() => {
@@ -558,11 +579,13 @@ const UserManagement: React.FC = () => {
                       <SelectContent>
                         {sections
                           .filter((section) => {
-                            if (!selectedDepartmentId || !newUser.year_level)
-                              return false;
+                            // If we have department and year level filters applied, sections are already filtered
+                            if (selectedDepartmentId && newUser.year_level) {
+                              return true; // Sections are already filtered by server
+                            }
+                            // Fallback to client-side filtering for initial load
                             return (
-                              section.department_id ===
-                                Number(selectedDepartmentId) &&
+                              section.department_id === Number(selectedDepartmentId) &&
                               section.year_level === Number(newUser.year_level)
                             );
                           })

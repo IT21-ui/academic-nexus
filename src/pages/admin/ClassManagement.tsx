@@ -103,6 +103,10 @@ const ClassManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Filter states for classes
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState("all");
+  const [selectedYearLevelFilter, setSelectedYearLevelFilter] = useState("all");
+
   const [isClassDialogOpen, setIsClassDialogOpen] = useState(false);
   const [editingClassId, setEditingClassId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,12 +128,19 @@ const ClassManagement: React.FC = () => {
     try {
       setManageStudentsLoading(true);
 
-      // Get the year level from the class section
-      const classYearLevel = cls.section?.year_level;
+      // Get the department from the class section
+      const classDepartmentId = cls.section?.department_id;
       
       // Load all students with their class relationships to detect subject conflicts
       const res = await userApi.getStudents(1, 200);
       let studentsToShow = res.data || [];
+      
+      // Filter students by department only
+      if (classDepartmentId) {
+        studentsToShow = studentsToShow.filter(student => 
+          student.department_id === classDepartmentId
+        );
+      }
       
       // Enrich student data with their current class subjects for conflict detection
       studentsToShow = studentsToShow.map(student => {
@@ -149,13 +160,6 @@ const ClassManagement: React.FC = () => {
           subjects: studentSubjects.length > 0 ? studentSubjects : student.subjects
         };
       });
-      
-      // Filter students by year level if the class has a section with year level
-      if (classYearLevel) {
-        studentsToShow = studentsToShow.filter(student => 
-          student.year_level === classYearLevel
-        );
-      }
       
       setAvailableStudents(studentsToShow);
     } catch (error: any) {
@@ -319,7 +323,13 @@ const ClassManagement: React.FC = () => {
     try {
       setLoading(true);
 
-      const res = await classApi.getClasses(page, 10, searchTerm);
+      const res = await classApi.getClasses(
+        page, 
+        10, 
+        searchTerm,
+        selectedDepartmentFilter !== "all" ? parseInt(selectedDepartmentFilter) : undefined,
+        selectedYearLevelFilter !== "all" ? parseInt(selectedYearLevelFilter) : undefined
+      );
 
       setClasses(res.data || []);
       setClassesPage(res.current_page);
@@ -342,6 +352,11 @@ const ClassManagement: React.FC = () => {
     fetchClasses(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Trigger fetchClasses when filters change
+  useEffect(() => {
+    fetchClasses(1);
+  }, [selectedDepartmentFilter, selectedYearLevelFilter, searchTerm]);
 
   // Handle subject filter from navigation state
   useEffect(() => {
@@ -1207,18 +1222,50 @@ const ClassManagement: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Classes</CardTitle>
-          <div className="relative w-64">
-            <Input
-              placeholder="Search by subject or teacher..."
-              className="pl-3"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  fetchClasses(1);
-                }
-              }}
-            />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Select value={selectedDepartmentFilter} onValueChange={setSelectedDepartmentFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={String(dept.id)}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={selectedYearLevelFilter} onValueChange={setSelectedYearLevelFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Year Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {[1, 2, 3, 4, 5].map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      Year {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="relative w-64">
+              <Input
+                placeholder="Search by subject or teacher..."
+                className="pl-3"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    fetchClasses(1);
+                  }
+                }}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>

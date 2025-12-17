@@ -11,16 +11,23 @@ export const sectionApi = {
   async getSections(
     page: number = 1,
     perPage: number = 15,
-    search: string = ""
+    search: string = "",
+    departmentId?: number,
+    yearLevel?: number
   ): Promise<PaginatedResponse<Section>> {
+    const params: any = {
+      page,
+      per_page: perPage,
+    };
+
+    if (search) params.search = search;
+    if (departmentId) params.department_id = departmentId;
+    if (yearLevel) params.year_level = yearLevel;
+
     const response = await api.get<PaginatedResponse<Section>>(
       "/api/sections",
       {
-        params: {
-          page,
-          per_page: perPage,
-          search,
-        },
+        params,
       }
     );
 

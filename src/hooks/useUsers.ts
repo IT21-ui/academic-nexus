@@ -80,8 +80,11 @@ export const useUpdateUser = () => {
     mutationFn: ({ id, userData }: { id: number; userData: Partial<User> }) =>
       userApi.updateUser(id, userData),
     onSuccess: (_, { id }) => {
+      // Invalidate all user-related queries to ensure immediate refresh
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["user", id] });
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["teachers"] });
     },
   });
 };

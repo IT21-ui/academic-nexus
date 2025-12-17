@@ -96,7 +96,6 @@ const SubjectManagement: React.FC = () => {
   const [sectionsLastPage, setSectionsLastPage] = useState(1);
   const [sectionsTotal, setSectionsTotal] = useState(0);
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
-  const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [isManageStudentsOpen, setIsManageStudentsOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState<Section | null>(null);
   const [isManageSubjectsOpen, setIsManageSubjectsOpen] = useState(false);
@@ -113,14 +112,6 @@ const SubjectManagement: React.FC = () => {
     units: "",
     department: "",
     yearLevel: "",
-  });
-
-  const [newSection, setNewSection] = useState({
-    name: "",
-    department_id: "",
-    year_level: "",
-    room: "",
-    max_students: "",
   });
 
   const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
@@ -216,24 +207,20 @@ const SubjectManagement: React.FC = () => {
       }
 
       console.log('Sections: Fetching with filters:', selectedSectionDepartmentFilter, selectedSectionYearLevelFilter);
-      const res = await sectionApi.getSections(page, 10, "");
-      let filteredSections = res.data;
       
-      // Apply frontend filtering if filters are selected
-      if (selectedSectionDepartmentFilter !== "all" || selectedSectionYearLevelFilter !== "all") {
-        filteredSections = res.data.filter(section => {
-          const matchesDepartment = selectedSectionDepartmentFilter === "all" || 
-            String(section.department_id) === selectedSectionDepartmentFilter;
-          const matchesYearLevel = selectedSectionYearLevelFilter === "all" || 
-            String(section.year_level) === selectedSectionYearLevelFilter;
-          return matchesDepartment && matchesYearLevel;
-        });
-      }
+      // Use server-side filtering by passing parameters to the API
+      const res = await sectionApi.getSections(
+        page, 
+        10, 
+        "",
+        selectedSectionDepartmentFilter !== "all" ? parseInt(selectedSectionDepartmentFilter) : undefined,
+        selectedSectionYearLevelFilter !== "all" ? parseInt(selectedSectionYearLevelFilter) : undefined
+      );
       
-      setSections(filteredSections);
+      setSections(res.data);
       setSectionsPage(res.current_page);
       setSectionsLastPage(res.last_page);
-      setSectionsTotal(filteredSections.length);
+      setSectionsTotal(res.total);
     } catch (error) {
       console.error('Sections API error:', error);
       toast({
@@ -371,98 +358,6 @@ const SubjectManagement: React.FC = () => {
           "There was a problem creating the subject. Please try again.",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleAddSection = async () => {
-    console.log('Raw form data:', newSection);
-    if (
-      !newSection.name ||
-      !newSection.department_id ||
-      !newSection.year_level ||
-      !newSection.max_students
-    ) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      if (editingSectionId) {
-        const updateData = {
-          name: newSection.name,
-          room: newSection.room || null,
-          max_students: parseInt(newSection.max_students),
-          department_id: parseInt(newSection.department_id),
-          year_level: parseInt(newSection.year_level),
-        };
-        console.log('Updating section with data:', updateData);
-        await sectionApi.updateSection(editingSectionId, updateData);
-
-        toast({
-          title: "Section Updated",
-          description: `${newSection.name} has been updated successfully.`,
-        });
-      } else {
-        const createData = {
-          name: newSection.name,
-          room: newSection.room || null,
-          max_students: parseInt(newSection.max_students),
-          department_id: parseInt(newSection.department_id),
-          year_level: parseInt(newSection.year_level),
-        };
-        console.log('Creating section with data:', createData);
-        await sectionApi.createSection(createData);
-
-        toast({
-          title: "Section Created",
-          description: `${newSection.name} has been created successfully.`,
-        });
-      }
-
-      setNewSection({
-        name: "",
-        department_id: "",
-        year_level: "",
-        room: "",
-        max_students: "",
-      });
-      setEditingSectionId(null);
-      setIsAddSectionOpen(false);
-
-      // Refresh section list
-      await fetchSections(sectionsPage);
-    } catch (error: any) {
-      console.error('Section creation error:', error);
-      
-      // Handle specific validation errors
-      if (error.response?.data?.message) {
-        const errorMessage = error.response.data.message;
-        
-        if (errorMessage.includes('already been taken') || errorMessage.includes('already exists')) {
-          toast({
-            title: "Duplicate Section Name",
-            description: `A section with name "${newSection.name}" already exists. Please use a different name.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Validation Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Error",
-          description:
-            "There was a problem creating the section. Please try again.",
-          variant: "destructive",
-        });
-      }
     }
   };
 
@@ -632,18 +527,6 @@ const SubjectManagement: React.FC = () => {
     });
   };
 
-  const handleEditSection = (section: Section) => {
-    setEditingSectionId(section.id);
-    setNewSection({
-      name: section.name,
-      department_id: String(section.department_id),
-      year_level: String(section.year_level),
-      room: section.room,
-      max_students: String(section.max_students),
-    });
-    setIsAddSectionOpen(true);
-  };
-
   const handleDeleteSection = async (section: Section) => {
     const confirmed = window.confirm(
       `Are you sure you want to delete section ${section.name}?`
@@ -777,209 +660,111 @@ const SubjectManagement: React.FC = () => {
             Subject & Section Management
           </h1>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Users className="w-4 h-4" />
-                Add Section
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingSectionId ? "Update Section" : "Create New Section"}
-                </DialogTitle>
-                <DialogDescription>
-                  Add a new section with instructor and schedule
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
+
+        <Dialog open={isAddSubjectOpen} onOpenChange={setIsAddSubjectOpen}>
+          <DialogTrigger asChild>
+            <Button variant="gradient" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Subject
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {editingSubjectId ? "Update Subject" : "Add New Subject"}
+              </DialogTitle>
+              <DialogDescription>
+                Create a new subject for a specific department and year level
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Section Name</Label>
+                  <Label>Subject Code</Label>
                   <Input
-                    placeholder="e.g., Section A"
-                    value={newSection.name}
+                    placeholder="e.g., CS101"
+                    value={newSubject.code}
                     onChange={(e) =>
-                      setNewSection({ ...newSection, name: e.target.value })
+                      setNewSubject({ ...newSubject, code: e.target.value })
                     }
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Department</Label>
-                  <Select
-                    value={newSection.department_id}
-                    onValueChange={(v) =>
-                      setNewSection({ ...newSection, department_id: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((d) => (
-                        <SelectItem key={d.id} value={String(d.id)}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Year Level</Label>
-                  <Select
-                    value={newSection.year_level}
-                    onValueChange={(v) =>
-                      setNewSection({ ...newSection, year_level: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select year level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {yearLevels.map((y) => (
-                        <SelectItem key={y.value} value={y.value}>
-                          {y.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Students</Label>
+                  <Label>Units</Label>
                   <Input
                     type="number"
-                    min={1}
-                    placeholder="e.g., 40"
-                    value={newSection.max_students}
+                    placeholder="3"
+                    value={newSubject.units}
                     onChange={(e) =>
-                      setNewSection({
-                        ...newSection,
-                        max_students: e.target.value,
-                      })
+                      setNewSubject({ ...newSubject, units: e.target.value })
                     }
                   />
-                </div>
-                              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAddSectionOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button variant="gradient" onClick={handleAddSection}>
-                  {editingSectionId ? "Update Section" : "Create Section"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isAddSubjectOpen} onOpenChange={setIsAddSubjectOpen}>
-            <DialogTrigger asChild>
-              <Button variant="gradient" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Subject
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingSubjectId ? "Update Subject" : "Add New Subject"}
-                </DialogTitle>
-                <DialogDescription>
-                  Create a new subject for a specific department and year level
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Subject Code</Label>
-                    <Input
-                      placeholder="e.g., CS101"
-                      value={newSubject.code}
-                      onChange={(e) =>
-                        setNewSubject({ ...newSubject, code: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Units</Label>
-                    <Input
-                      type="number"
-                      placeholder="3"
-                      value={newSubject.units}
-                      onChange={(e) =>
-                        setNewSubject({ ...newSubject, units: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Subject Name</Label>
-                  <Input
-                    placeholder="e.g., Introduction to Programming"
-                    value={newSubject.name}
-                    onChange={(e) =>
-                      setNewSubject({ ...newSubject, name: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Department</Label>
-                  <Select
-                    value={newSubject.department}
-                    onValueChange={(v) =>
-                      setNewSubject({ ...newSubject, department: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((d) => (
-                        <SelectItem key={d.id} value={String(d.id)}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Year Level</Label>
-                  <Select
-                    value={newSubject.yearLevel}
-                    onValueChange={(v) =>
-                      setNewSubject({ ...newSubject, yearLevel: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select year level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {yearLevels.map((y) => (
-                        <SelectItem key={y.value} value={y.value}>
-                          {y.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAddSubjectOpen(false)}
+              <div className="space-y-2">
+                <Label>Subject Name</Label>
+                <Input
+                  placeholder="e.g., Computer Science 101"
+                  value={newSubject.name}
+                  onChange={(e) =>
+                    setNewSubject({ ...newSubject, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <Select
+                  value={newSubject.department}
+                  onValueChange={(v) =>
+                    setNewSubject({ ...newSubject, department: v })
+                  }
                 >
-                  Cancel
-                </Button>
-                <Button variant="gradient" onClick={handleAddSubject}>
-                  {editingSubjectId ? "Update Subject" : "Add Subject"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={String(dept.id)}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Year Level</Label>
+                <Select
+                  value={newSubject.yearLevel}
+                  onValueChange={(v) =>
+                    setNewSubject({ ...newSubject, yearLevel: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select year level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearLevels.map((year) => (
+                      <SelectItem key={year.value} value={year.value}>
+                        {year.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsAddSubjectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button variant="gradient" onClick={handleAddSubject}>
+                {editingSubjectId ? "Update Subject" : "Add Subject"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Tabs defaultValue="subjects" className="space-y-4">
@@ -1290,13 +1075,6 @@ const SubjectManagement: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleEditSection(section)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
                             <Button
                               size="icon"
                               variant="ghost"
