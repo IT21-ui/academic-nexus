@@ -235,6 +235,7 @@ const SubjectManagement: React.FC = () => {
   };
 
   useEffect(() => {
+    setSectionsPage(1); // Reset to page 1 when filters change
     fetchSections(1);
   }, [toast, selectedSectionDepartmentFilter, selectedSectionYearLevelFilter]);
 

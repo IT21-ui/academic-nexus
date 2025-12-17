@@ -355,6 +355,7 @@ const ClassManagement: React.FC = () => {
 
   // Trigger fetchClasses when filters change
   useEffect(() => {
+    setClassesPage(1); // Reset to page 1 when filters change
     fetchClasses(1);
   }, [selectedDepartmentFilter, selectedYearLevelFilter, searchTerm]);
 

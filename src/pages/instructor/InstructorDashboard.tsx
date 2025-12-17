@@ -33,12 +33,10 @@ const InstructorDashboard: React.FC = () => {
 
       try {
         setLoading(true);
-        
-        // Fetch user data from users table which should include department
+
+        // Fetch teacher data
         const userRes = await api.get(`/api/users/${user.id}`);
         const userData = userRes.data;
-        console.log('Users table API Response:', userData);
-        console.log('User department from users table:', userData?.department);
         console.log('User department name from users table:', userData?.department?.name);
         setTeacherData(userData);
         
@@ -52,11 +50,60 @@ const InstructorDashboard: React.FC = () => {
           acc + (cls.students?.length || 0), 0
         );
 
+        // Calculate pending grades by fetching grades for all students
+        let pendingGradesCount = 0;
+        if (teacherClasses.length > 0 && totalStudents > 0) {
+          try {
+            // Get all student IDs from all classes
+            const allStudentIds = teacherClasses.flatMap((cls: any) => 
+              cls.students?.map((student: any) => student.id) || []
+            );
+            
+            // Remove duplicates
+            const uniqueStudentIds = [...new Set(allStudentIds)];
+            
+            // Fetch grades for all students
+            const gradePromises = uniqueStudentIds.map(studentId => 
+              api.get(`/api/students/${studentId}/grades`).catch(() => ({ data: [] }))
+            );
+            
+            const gradeResponses = await Promise.all(gradePromises);
+            const allGrades = gradeResponses.flatMap(response => response.data || []);
+            
+            // Count pending grades (grades without final_grade or with status "pending")
+            pendingGradesCount = allGrades.filter((grade: any) => {
+              return !grade.final_grade || grade.status === 'pending';
+            }).length;
+            
+            console.log('Pending grades calculation:', {
+              totalStudents,
+              uniqueStudentIds: uniqueStudentIds.length,
+              totalGrades: allGrades.length,
+              pendingGrades: pendingGradesCount
+            });
+            
+          } catch (error) {
+            console.error('Error fetching grades for pending calculation:', error);
+            // Fallback to 0 if grade fetching fails
+            pendingGradesCount = 0;
+          }
+        }
+
+        // Calculate today's classes
+        const today = new Date().getDay();
+        const todayClasses = teacherClasses.filter((cls: any) => {
+          if (!cls.schedules) return false;
+          return cls.schedules.some((schedule: any) => {
+            const scheduleDay = parseInt(schedule.day_of_week);
+            return scheduleDay === today;
+          });
+        });
+
         setStats({
           totalClasses: teacherClasses.length,
           totalStudents,
-          pendingGrades: 8, // TODO: Calculate from actual data
-          todayClasses: 3 // TODO: Calculate from schedule
+          pendingGrades: pendingGradesCount,
+          todayClasses: todayClasses.length
         });
       } catch (error) {
         console.error('Error fetching teacher data:', error);
