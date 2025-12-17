@@ -36,9 +36,13 @@ const MyClasses: React.FC = () => {
     return days[dayNumber - 1] || "Unknown";
   };
 
-  const formatTime = (time: string): string => {
+  const formatTime = (time: string | undefined | null): string => {
+    if (!time || typeof time !== "string") return "";
+    
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
+    if (isNaN(hour) || isNaN(parseInt(minutes))) return "";
+    
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
@@ -67,6 +71,9 @@ const MyClasses: React.FC = () => {
                 <div>
                   <Badge variant="secondary" className="mb-2">{classItem.subject?.code}</Badge>
                   <CardTitle>{classItem.subject?.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Section: {classItem.section?.name || 'TBD'}
+                  </p>
                 </div>
                 <span className="flex items-center gap-1 text-sm bg-primary/10 text-primary px-3 py-1 rounded-full">
                   <Users className="w-4 h-4" />
@@ -75,20 +82,25 @@ const MyClasses: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>
-                    {classItem.schedules && classItem.schedules.length > 0
-                      ? `${getDayName(classItem.schedules[0].day)} ${formatTime(classItem.schedules[0].timeStart)}-${formatTime(classItem.schedules[0].timeEnd)}`
-                      : 'Schedule TBD'
-                    }
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>{classItem.room || 'TBD'}</span>
-                </div>
+              {/* Multiple Schedules */}
+              <div className="space-y-2">
+                {classItem.schedules && classItem.schedules.length > 0 ? (
+                  classItem.schedules.map((schedule: any, index: number) => (
+                    <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span>
+                        {getDayName(schedule.day_of_week)} {formatTime(schedule.start_time)}-{formatTime(schedule.end_time)}
+                      </span>
+                      <MapPin className="w-4 h-4" />
+                      <span>{schedule.room || 'TBD'}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4" />
+                    <span>Schedule TBD</span>
+                  </div>
+                )}
               </div>
               
               <div className="flex gap-2 pt-4 border-t border-border">

@@ -63,8 +63,12 @@ const Subjects: React.FC = () => {
   };
 
   const formatTime = (time: string): string => {
+    if (!time || typeof time !== "string") return "";
+    
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
+    if (isNaN(hour) || isNaN(parseInt(minutes))) return "";
+    
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
@@ -134,41 +138,41 @@ const Subjects: React.FC = () => {
                   key={classItem.id}
                   className="border-b border-gray-200 pb-3 last:border-b-0"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-gray-700 font-medium">
-                      <BookOpen className="w-5 h-5 text-blue-600" />
-                      <span>
-                        {classItem.subject?.code || "N/A"} (
-                        {classItem.section?.name || "N/A"})
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 text-gray-600">
-                    <Clock className="w-4 h-4" />
+                  {/* Subject and Section */}
+                  <div className="flex items-center gap-2 text-gray-700 font-bold mb-2">
+                    <BookOpen className="w-5 h-5 text-blue-600" />
                     <span>
-                      {classItem.schedules && classItem.schedules.length > 0
-                        ? classItem.schedules
-                            .map(
-                              (s: any) =>
-                                `${getDayName(s.day)} ${formatTime(
-                                  s.timeStart
-                                )}-${formatTime(s.timeEnd)}`
-                            )
-                            .join(", ")
-                        : "TBD"}
+                      {classItem.subject?.code || "N/A"} (
+                      {classItem.section?.name || "N/A"})
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 mt-2 text-gray-600">
+                  
+                  {/* Schedules with bullet points and icons */}
+                  <div className="ml-7 space-y-1">
+                    {classItem.schedules && classItem.schedules.length > 0
+                      ? classItem.schedules.map((s: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 text-gray-600 text-sm font-semibold">
+                            <Clock className="w-4 h-4" />
+                            <span>
+                              {getDayName(s.day_of_week)} {formatTime(s.start_time)}-{formatTime(s.end_time)} {s.room || ""}
+                            </span>
+                          </div>
+                        ))
+                      : <div className="flex items-center gap-2 text-gray-600 text-sm">
+                          <Clock className="w-4 h-4" />
+                          <span>No schedule</span>
+                        </div>
+                    }
+                  </div>
+                  
+                  {/* Teacher name with icon */}
+                  <div className="flex items-center gap-2 ml-7 mt-2 text-gray-600 font-semibold">
                     <User className="w-4 h-4" />
                     <span>
                       {classItem.teacher
                         ? `${classItem.teacher.first_name} ${classItem.teacher.last_name}`
                         : "TBA"}
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <span>{classItem.section?.room || "TBD"}</span>
                   </div>
                 </div>
               ))}

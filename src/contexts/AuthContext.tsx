@@ -74,6 +74,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await api.get("/api/user");
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to refresh user data:", error);
+      return null;
+    }
+  };
+
   // Show loading state while checking auth
   if (loading) {
     return <Loader />;
@@ -85,6 +96,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         user,
         login,
         logout,
+        refreshUser,
         isAuthenticated: !!user,
         loading,
       }}

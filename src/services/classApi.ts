@@ -40,18 +40,20 @@ export const classApi = {
     section_id?: number;
     teacher_id: number;
     schedules: {
-      day: number;
-      timeStart: string;
-      timeEnd: string;
+      day_of_week: string;
+      start_time: string;
+      end_time: string;
+      room: string;
     }[];
     student_ids?: number[];
   }) {
     const response = await api.post<ApiResponse<Class>>("/api/classes", {
       ...data,
       schedules: (data.schedules || []).map((s) => ({
-        day: s.day,
-        timeStart: s.timeStart,
-        timeEnd: s.timeEnd,
+        day_of_week: s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        room: s.room,
       })),
     } as any);
     return response.data;
@@ -66,9 +68,10 @@ export const classApi = {
       section_id?: number;
       teacher_id: number;
       schedules: {
-        day: number;
-        timeStart: string;
-        timeEnd: string;
+        day_of_week: string;
+        start_time: string;
+        end_time: string;
+        room: string;
       }[];
       studentIds?: number[];
       skipSectionStudents?: boolean;
@@ -77,9 +80,10 @@ export const classApi = {
     const payload: any = { ...data };
     if (payload.schedules) {
       payload.schedules = (payload.schedules || []).map((s: any) => ({
-        day: s.day,
-        timeStart: s.timeStart,
-        timeEnd: s.timeEnd,
+        day_of_week: s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        room: s.room,
       }));
     }
 

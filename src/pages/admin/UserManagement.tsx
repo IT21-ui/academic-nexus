@@ -414,9 +414,6 @@ const UserManagement: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             User Management
           </h1>
-          <p className="text-muted-foreground">
-            Manage students, instructors, and access requests
-          </p>
         </div>
         <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
           <DialogTrigger asChild>

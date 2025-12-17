@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -333,9 +332,6 @@ const TeacherManagement: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             Teacher Management
           </h1>
-          <p className="text-muted-foreground">
-            Manage instructor profiles and assignments
-          </p>
         </div>
         <Dialog
           open={isTeacherDialogOpen}
@@ -478,74 +474,10 @@ const TeacherManagement: React.FC = () => {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {loading && teachers.length === 0 && (
-          <Card className="col-span-full">
-            <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              Loading instructors...
-            </CardContent>
-          </Card>
-        )}
-
-        {!loading && teachers.length === 0 && (
-          <Card className="col-span-full">
-            <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              No instructors found.
-            </CardContent>
-          </Card>
-        )}
-
-        {!loading &&
-          teachers.map((instructor) => (
-            <Card
-              key={instructor.id}
-              className="hover:shadow-soft transition-shadow"
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-lg font-semibold text-primary">
-                      {`${instructor.first_name?.[0] ?? ""}${
-                        instructor.last_name?.[0] ?? ""
-                      }`}
-                    </span>
-                  </div>
-                  {/* <Badge variant="secondary">{instructor.id}</Badge> */}
-                </div>
-                <h3 className="font-semibold text-foreground">
-                  {instructor.first_name} {instructor.last_name}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {instructor.department?.name || "No department"}
-                </p>
-                <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {instructor.classes_count ?? 0} classes
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 mt-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => handleEditTeacher(instructor)}
-                  >
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="ghost">
-                    <Mail className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>All Teachers</CardTitle>
+      
+      <div className="border rounded-lg">
+        <div className="flex flex-row items-center justify-between p-6 border-b">
+          <h2 className="text-lg font-semibold">All Teachers</h2>
           <div className="relative w-64 flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -565,8 +497,8 @@ const TeacherManagement: React.FC = () => {
               Search
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-6">
           {loading && (
             <p className="text-sm text-muted-foreground mb-2">
               Loading teachers...
@@ -659,8 +591,8 @@ const TeacherManagement: React.FC = () => {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

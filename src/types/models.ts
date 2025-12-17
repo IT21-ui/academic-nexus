@@ -189,9 +189,11 @@ export interface LoginResponse {
 }
 
 export interface Schedule {
-  day: number;
-  timeStart: string;
-  timeEnd: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  room?: string;
+  is_online?: boolean;
 }
 
 export interface Class {

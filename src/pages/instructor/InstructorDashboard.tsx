@@ -64,9 +64,13 @@ const InstructorDashboard: React.FC = () => {
     return days[dayNumber - 1] || "Unknown";
   };
 
-  const formatTime = (time: string): string => {
+  const formatTime = (time: string | undefined | null): string => {
+    if (!time || typeof time !== "string") return "";
+    
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
+    if (isNaN(hour) || isNaN(parseInt(minutes))) return "";
+    
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
@@ -144,13 +148,17 @@ const InstructorDashboard: React.FC = () => {
                       <h4 className="font-semibold text-foreground">
                         {classItem.subject?.code} - {classItem.subject?.name}
                       </h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {classItem.schedules && classItem.schedules.length > 0
-                          ? `${getDayName(classItem.schedules[0].day)} ${formatTime(classItem.schedules[0].timeStart)}-${formatTime(classItem.schedules[0].timeEnd)}`
-                          : 'Schedule TBD'
-                        }
-                      </p>
-                      <p className="text-sm text-muted-foreground">{classItem.room || 'TBD'}</p>
+                      <div className="space-y-1">
+                        {classItem.schedules && classItem.schedules.length > 0 ? (
+                          classItem.schedules.map((schedule: any, index: number) => (
+                            <p key={index} className="text-sm text-muted-foreground">
+                              {getDayName(schedule.day_of_week)} {formatTime(schedule.start_time)}-{formatTime(schedule.end_time)} • {schedule.room || 'TBD'}
+                            </p>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Schedule TBD</p>
+                        )}
+                      </div>
                     </div>
                     <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
                       {classItem.students?.length || 0} students

@@ -5,6 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -23,11 +30,13 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import departmentApi from "@/services/departmentApi";
-import type { Department } from "@/types/models";
+import userApi from "@/services/userApi";
+import type { Department, User } from "@/types/models";
 
 const DepartmentManagement: React.FC = () => {
   const { toast } = useToast();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +48,7 @@ const DepartmentManagement: React.FC = () => {
     name: "",
     code: "",
     description: "",
+    head_id: "",
   });
   const [editingDepartmentId, setEditingDepartmentId] = useState<number | null>(
     null
@@ -53,7 +63,7 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const handleOpenCreate = () => {
-    setNewDept({ name: "", code: "", description: "" });
+    setNewDept({ name: "", code: "", description: "", head_id: "" });
     setEditingDepartmentId(null);
     setIsAddOpen(true);
   };
@@ -96,6 +106,7 @@ const DepartmentManagement: React.FC = () => {
       name: dept.name,
       code: dept.code,
       description: dept.description || "",
+      head_id: dept.head_id ? String(dept.head_id) : "",
     });
     setIsAddOpen(true);
   };
@@ -120,8 +131,20 @@ const DepartmentManagement: React.FC = () => {
     }
   };
 
+  const fetchTeachers = async () => {
+    try {
+      const response = await userApi.getTeachers(1, 100);
+      if (response && response.data) {
+        setTeachers(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch teachers:", error);
+    }
+  };
+
   useEffect(() => {
     fetchDepartments(1);
+    fetchTeachers();
   }, []);
 
   const handleSubmitDepartment = async () => {
@@ -143,6 +166,7 @@ const DepartmentManagement: React.FC = () => {
             name: newDept.name,
             code: newDept.code,
             description: newDept.description || undefined,
+            head_id: newDept.head_id ? Number(newDept.head_id) : null,
           }
         );
 
@@ -160,6 +184,7 @@ const DepartmentManagement: React.FC = () => {
           name: newDept.name,
           code: newDept.code,
           description: newDept.description || undefined,
+          head_id: newDept.head_id ? Number(newDept.head_id) : null,
         });
 
         // If the request did not throw, assume success (backend may not wrap in ApiResponse)
@@ -175,7 +200,7 @@ const DepartmentManagement: React.FC = () => {
       }
 
       setIsAddOpen(false);
-      setNewDept({ name: "", code: "", description: "" });
+      setNewDept({ name: "", code: "", description: "", head_id: "" });
       setEditingDepartmentId(null);
       fetchDepartments(currentPage);
     } catch (error) {
@@ -199,9 +224,6 @@ const DepartmentManagement: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             Department Management
           </h1>
-          <p className="text-muted-foreground">
-            Manage academic departments and their heads
-          </p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
@@ -256,6 +278,26 @@ const DepartmentManagement: React.FC = () => {
                     setNewDept({ ...newDept, description: e.target.value })
                   }
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dept-head">Department Head</Label>
+                <Select
+                  value={newDept.head_id}
+                  onValueChange={(value) =>
+                    setNewDept({ ...newDept, head_id: value })
+                  }
+                >
+                  <SelectTrigger id="dept-head">
+                    <SelectValue placeholder="Select department head (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.map((teacher) => (
+                      <SelectItem key={teacher.id} value={String(teacher.id)}>
+                        {teacher.first_name} {teacher.last_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>

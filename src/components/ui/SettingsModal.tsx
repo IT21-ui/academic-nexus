@@ -6,13 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Settings, User, Bell, Shield, Palette, Globe } from 'lucide-react';
+import { Settings, User, Bell, Shield, Palette, Globe, Key } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/apiClient';
 import { toast } from 'sonner';
 
 export const SettingsModal: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -38,6 +38,14 @@ export const SettingsModal: React.FC = () => {
     },
   });
 
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   // Load settings when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -47,7 +55,7 @@ export const SettingsModal: React.FC = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await api.get('/user/settings');
+      const response = await api.get('/api/user/settings');
       const settings = response.data;
       
       setFormData(prev => ({
@@ -69,6 +77,7 @@ export const SettingsModal: React.FC = () => {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'privacy', label: 'Privacy', icon: Shield },
+    { id: 'security', label: 'Security', icon: Key },
     { id: 'general', label: 'General', icon: Settings },
   ];
 
@@ -89,10 +98,71 @@ export const SettingsModal: React.FC = () => {
     }));
   };
 
+  const handlePasswordChange = (field: string, value: string) => {
+    setPasswordData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handlePasswordReset = async () => {
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New password and confirmation do not match');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters long');
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      
+      await api.put('/api/user/change-password', {
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword,
+        confirm_password: passwordData.confirmPassword,
+      });
+      
+      toast.success('Password changed successfully!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast.error(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setLoading(true);
       
+      // Save profile data if changed
+      const profileChanged = 
+        formData.firstName !== user?.first_name ||
+        formData.lastName !== user?.last_name ||
+        formData.email !== user?.email;
+      
+      if (profileChanged) {
+        await api.put(`/api/users/${user?.id}`, {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+        });
+      }
+      
+      // Save settings data
       const settingsData = {
         theme: formData.theme,
         language: formData.language,
@@ -102,7 +172,10 @@ export const SettingsModal: React.FC = () => {
         privacy: formData.privacy,
       };
 
-      await api.put('/user/settings', settingsData);
+      await api.put('/api/user/settings', settingsData);
+      
+      // Refresh user data to update sidebar name
+      await refreshUser();
       
       toast.success('Settings saved successfully!');
       setIsOpen(false);
@@ -288,6 +361,63 @@ export const SettingsModal: React.FC = () => {
     </div>
   );
 
+  const renderSecurityTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium mb-4">Change Password</h3>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="currentPassword">Current Password</Label>
+            <Input
+              id="currentPassword"
+              type="password"
+              value={passwordData.currentPassword}
+              onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
+              placeholder="Enter your current password"
+            />
+          </div>
+          <div>
+            <Label htmlFor="newPassword">New Password</Label>
+            <Input
+              id="newPassword"
+              type="password"
+              value={passwordData.newPassword}
+              onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+              placeholder="Enter your new password (min. 8 characters)"
+            />
+          </div>
+          <div>
+            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={passwordData.confirmPassword}
+              onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+              placeholder="Confirm your new password"
+            />
+          </div>
+          <Button 
+            onClick={handlePasswordReset}
+            disabled={passwordLoading || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+            className="w-full"
+          >
+            {passwordLoading ? 'Changing Password...' : 'Change Password'}
+          </Button>
+        </div>
+      </div>
+      
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-medium mb-2">Password Requirements</h3>
+        <ul className="text-sm text-muted-foreground space-y-1">
+          <li>• At least 8 characters long</li>
+          <li>• Include both uppercase and lowercase letters</li>
+          <li>• Include at least one number</li>
+          <li>• Include at least one special character</li>
+        </ul>
+      </div>
+    </div>
+  );
+
   const renderGeneralTab = () => (
     <div className="space-y-4">
       <div>
@@ -330,6 +460,8 @@ export const SettingsModal: React.FC = () => {
         return renderAppearanceTab();
       case 'privacy':
         return renderPrivacyTab();
+      case 'security':
+        return renderSecurityTab();
       case 'general':
         return renderGeneralTab();
       default:

@@ -91,7 +91,13 @@ const Schedule: React.FC = () => {
         {days.map((day) => {
           const dayClasses = schedule.filter((c) =>
             c.schedules?.some(
-              (scheduleItem) => getDayName(scheduleItem.day) === day
+              (scheduleItem) => {
+                const dayNumber = typeof scheduleItem.day_of_week === 'string' 
+                  ? parseInt(scheduleItem.day_of_week) 
+                  : (scheduleItem.day_of_week || 1);
+                const dayName = getDayName(dayNumber);
+                return dayName === day;
+              }
             )
           );
 
@@ -125,7 +131,13 @@ const Schedule: React.FC = () => {
                   <div className="space-y-3">
                     {dayClasses.map((dayClass) => {
                       const schedulesForDay = (dayClass.schedules || []).filter(
-                        (s) => getDayName(s.day) === day
+                        (s) => {
+                          const dayNumber = typeof s.day_of_week === 'string' 
+                            ? parseInt(s.day_of_week) 
+                            : (s.day_of_week || 1);
+                          const dayName = getDayName(dayNumber);
+                          return dayName === day;
+                        }
                       );
 
                       return schedulesForDay.map((scheduleItem, index) => (
@@ -140,8 +152,8 @@ const Schedule: React.FC = () => {
                             <div className="flex items-center gap-2 text-sm">
                               <Clock className="w-4 h-4 text-muted-foreground" />
                               <span>
-                                {formatTime(scheduleItem.timeStart)} -{" "}
-                                {formatTime(scheduleItem.timeEnd)}
+                                {formatTime(scheduleItem.start_time)} -{" "}
+                                {formatTime(scheduleItem.end_time)}
                               </span>
                             </div>
                             <div className="flex flex-row align-center gap-2 text-xs text-muted-foreground">
@@ -155,7 +167,7 @@ const Schedule: React.FC = () => {
                               •
                               <div className="flex items-center gap-2">
                                 <MapPin className="w-3 h-3" />
-                                <span>{dayClass.section?.room || "TBD"}</span>
+                                <span>{scheduleItem.room || "TBD"}</span>
                               </div>
                             </div>
                             {dayClass.teacher && (
@@ -190,8 +202,12 @@ const getDayName = (dayNumber: number): string => {
 };
 
 const formatTime = (time: string): string => {
+  if (!time || typeof time !== "string") return "";
+  
   const [hours, minutes] = time.split(":");
   const hour = parseInt(hours);
+  if (isNaN(hour) || isNaN(parseInt(minutes))) return "";
+  
   const ampm = hour >= 12 ? "PM" : "AM";
   const displayHour = hour % 12 || 12;
   return `${displayHour}:${minutes} ${ampm}`;

@@ -48,7 +48,6 @@ const adminLinks = [
   { to: "/teachers", icon: GraduationCap, label: "Teachers" },
   { to: "/departments", icon: Building, label: "Departments" },
   { to: "/class-management", icon: Calendar, label: "Class Management" },
-  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {

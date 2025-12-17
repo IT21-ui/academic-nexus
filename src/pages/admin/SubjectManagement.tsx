@@ -685,9 +685,6 @@ const SubjectManagement: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             Subject & Section Management
           </h1>
-          <p className="text-muted-foreground">
-            Manage subjects, sections, and student assignments
-          </p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
@@ -772,17 +769,7 @@ const SubjectManagement: React.FC = () => {
                     }
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Room</Label>
-                  <Input
-                    placeholder="e.g., Room 201"
-                    value={newSection.room}
-                    onChange={(e) =>
-                      setNewSection({ ...newSection, room: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
+                              </div>
               <DialogFooter>
                 <Button
                   variant="outline"
@@ -1025,7 +1012,6 @@ const SubjectManagement: React.FC = () => {
                     <TableHead>Section</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Class</TableHead>
-                    <TableHead>Room</TableHead>
                     <TableHead>Students</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -1034,7 +1020,7 @@ const SubjectManagement: React.FC = () => {
                   {!sectionsLoading && sections.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={6}
                         className="text-center text-muted-foreground py-6"
                       >
                         No sections found.
@@ -1059,7 +1045,6 @@ const SubjectManagement: React.FC = () => {
                             {section.classes_count} classes
                           </Button>
                         </TableCell>
-                        <TableCell>{section.room}</TableCell>
                         <TableCell>
                           <Button
                             variant="ghost"

@@ -151,24 +151,56 @@ const AttendanceEntry: React.FC = () => {
       try {
         setLoading(true);
 
-        const res = await attendanceApi.getClassAttendances(
+        // First fetch students for the class
+        const studentsRes = await studentsApi.getStudentsByClassPaginated(
           Number(selectedClassId),
-          selectedDate,
           currentPage,
           pageSize
         );
+        
+        const classStudents = studentsRes.data || [];
+        setStudents(classStudents);
 
-        setStudents(res.data || []);
+        // Then fetch attendance for these students
+        try {
+          const attendanceRes = await attendanceApi.getClassAttendances(
+            Number(selectedClassId),
+            selectedDate,
+            currentPage,
+            pageSize
+          );
 
-        // Initialize attendance
-        const initialAttendance: Record<number, AttendanceValue> = {};
-        (res.data || []).forEach((student: any) => {
-          const status = student?.attendance?.status as
-            | AttendanceStatus
-            | undefined;
-          initialAttendance[student.id] = status ?? null;
-        });
-        setAttendance(initialAttendance);
+          // Merge student data with attendance data
+          const studentsWithAttendance = classStudents.map((student: any) => {
+            const attendanceRecord = (attendanceRes.data || []).find(
+              (attStudent: any) => attStudent.id === student.id
+            );
+            return {
+              ...student,
+              attendance: attendanceRecord?.attendance
+            };
+          });
+
+          setStudents(studentsWithAttendance);
+
+          // Initialize attendance
+          const initialAttendance: Record<number, AttendanceValue> = {};
+          studentsWithAttendance.forEach((student: any) => {
+            const status = student?.attendance?.status as
+              | AttendanceStatus
+              | undefined;
+            initialAttendance[student.id] = status ?? null;
+          });
+          setAttendance(initialAttendance);
+        } catch (attendanceError) {
+          console.error("Error fetching attendance data:", attendanceError);
+          // Still show students even if attendance fetch fails
+          const initialAttendance: Record<number, AttendanceValue> = {};
+          classStudents.forEach((student: any) => {
+            initialAttendance[student.id] = null;
+          });
+          setAttendance(initialAttendance);
+        }
       } catch (error) {
         console.error("Error fetching class students:", error);
         setStudents([]);

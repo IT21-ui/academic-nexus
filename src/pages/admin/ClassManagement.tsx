@@ -66,9 +66,10 @@ const daysOfWeek = [
 ];
 
 type ScheduleForm = {
-  day: string;
-  timeStart: string;
-  timeEnd: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  room: string;
 };
 
 const ClassManagement: React.FC = () => {
@@ -111,7 +112,7 @@ const ClassManagement: React.FC = () => {
     department_id: "",
     section_id: "",
     teacher_id: "",
-    schedules: [{ day: "", timeStart: "", timeEnd: "" }] as ScheduleForm[],
+    schedules: [{ day_of_week: "", start_time: "", end_time: "", room: "" }] as ScheduleForm[],
   });
 
   const openManageStudents = async (cls: ClassModel) => {
@@ -123,9 +124,40 @@ const ClassManagement: React.FC = () => {
     try {
       setManageStudentsLoading(true);
 
-      // Load all students so you can add/remove any student.
+      // Get the year level from the class section
+      const classYearLevel = cls.section?.year_level;
+      
+      // Load all students with their class relationships to detect subject conflicts
       const res = await userApi.getStudents(1, 200);
-      setAvailableStudents(res.data || []);
+      let studentsToShow = res.data || [];
+      
+      // Enrich student data with their current class subjects for conflict detection
+      studentsToShow = studentsToShow.map(student => {
+        // Check if this student is enrolled in any classes and get their subjects
+        const studentSubjects = [];
+        
+        // Look through all existing classes to find ones this student is enrolled in
+        classes.forEach(existingClass => {
+          if (existingClass.students && existingClass.students.some(classStudent => classStudent.id === student.id)) {
+            // Student is enrolled in this class, add the subject
+            studentSubjects.push(existingClass.subject);
+          }
+        });
+        
+        return {
+          ...student,
+          subjects: studentSubjects.length > 0 ? studentSubjects : student.subjects
+        };
+      });
+      
+      // Filter students by year level if the class has a section with year level
+      if (classYearLevel) {
+        studentsToShow = studentsToShow.filter(student => 
+          student.year_level === classYearLevel
+        );
+      }
+      
+      setAvailableStudents(studentsToShow);
     } catch (error: any) {
       const status = error?.response?.status;
       const message =
@@ -144,13 +176,67 @@ const ClassManagement: React.FC = () => {
   };
 
   const addStudentToClass = (studentId: number) => {
-    setSelectedStudentIds((prev) =>
-      prev.includes(studentId) ? prev : [...prev, studentId]
-    );
+    // Check if student is already selected
+    if (selectedStudentIds.includes(studentId)) {
+      return;
+    }
+    
+    // Find the student from available students
+    const student = availableStudents.find(s => s.id === studentId);
+    if (!student) {
+      return;
+    }
+    
+    // Additional validation: Check if student is already enrolled in same subject in another class
+    if (selectedClass) {
+      console.log("Checking student:", student.first_name, "for subject:", selectedClass.subject.name);
+      console.log("Student data:", {
+        studentId: student.id,
+        studentSubjects: student.subjects,
+        studentSubjectsLength: student.subjects?.length,
+        selectedClassStudents: selectedClass.students,
+        selectedClassStudentsLength: selectedClass.students?.length
+      });
+      
+      // Check multiple possible ways student might have subject data
+      const isEnrolledInSameSubject = (
+        // Check if student has subjects array with matching subject
+        (student.subjects && Array.isArray(student.subjects) && student.subjects.some((subject: Subject) => 
+          subject.id === selectedClass.subject.id
+        )) ||
+        // Check if student is already in current class students
+        (selectedClass.students && Array.isArray(selectedClass.students) && selectedClass.students.some((classStudent: any) => 
+          classStudent.id === student.id
+        ))
+      );
+      
+      console.log("Is enrolled in same subject:", isEnrolledInSameSubject);
+      
+      if (isEnrolledInSameSubject) {
+        toast({
+          title: "Student Already Enrolled",
+          description: `${student.first_name} ${student.last_name} is already enrolled in ${selectedClass.subject.name}. Each student can only be enrolled in one class per subject to avoid scheduling conflicts.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    setSelectedStudentIds((prev) => [...prev, studentId]);
   };
 
   const removeStudentFromClass = (studentId: number) => {
     setSelectedStudentIds((prev) => prev.filter((id) => id !== studentId));
+  };
+
+  // Helper function to check if student is enrolled in same subject
+  const isStudentEnrolledInSameSubject = (student: User, currentClass: ClassModel) => {
+    if (!student.subjects || !currentClass) return false;
+    
+    // Check if student has the same subject in their subjects array
+    return student.subjects.some((subject: Subject) => 
+      subject.id === currentClass.subject.id
+    );
   };
 
   const saveClassStudents = async () => {
@@ -283,7 +369,7 @@ const ClassManagement: React.FC = () => {
       department_id: "",
       section_id: "",
       teacher_id: "",
-      schedules: [{ day: "", timeStart: "", timeEnd: "" }],
+      schedules: [{ day_of_week: "", start_time: "", end_time: "", room: "" }],
     });
     setEditingClassId(null);
   };
@@ -294,12 +380,24 @@ const ClassManagement: React.FC = () => {
     navigate(location.pathname, { replace: true, state: null });
   };
 
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      // Dialog closing - reset editing state
+      setEditingClassId(null);
+    }
+    setIsClassDialogOpen(open);
+  };
+
   const handleOpenCreate = () => {
     resetForm();
+    setEditingClassId(null);
     setIsClassDialogOpen(true);
   };
 
   const handleEditClass = (cls: ClassModel) => {
+    console.log('Editing class data:', cls);
+    console.log('Class schedules:', cls.schedules);
+    
     setEditingClassId(cls.id as number);
     setForm({
       subject_id: String(cls.subject.id),
@@ -309,12 +407,30 @@ const ClassManagement: React.FC = () => {
       schedules:
         cls.schedules && cls.schedules.length > 0
           ? cls.schedules.map((s) => ({
-              day: String(s.day),
-              timeStart: s.timeStart || "",
-              timeEnd: s.timeEnd || "",
+              day_of_week: String(s.day_of_week),
+              start_time: s.start_time || "",
+              end_time: s.end_time || "",
+              room: s.room || "",
             }))
-          : [{ day: "", timeStart: "", timeEnd: "" }],
+          : [{ day_of_week: "", start_time: "", end_time: "", room: "" }],
     });
+    
+    console.log('Form set to:', {
+      subject_id: String(cls.subject.id),
+      department_id: cls.department_id ? String(cls.department_id) : "",
+      section_id: cls.section ? String(cls.section.id) : "",
+      teacher_id: String(cls.teacher.id),
+      schedules:
+        cls.schedules && cls.schedules.length > 0
+          ? cls.schedules.map((s) => ({
+              day: String(s.day_of_week),
+              timeStart: s.start_time || "",
+              timeEnd: s.end_time || "",
+              location: s.room || "",
+            }))
+          : [{ day: "", timeStart: "", timeEnd: "", location: "" }],
+    });
+    
     setIsClassDialogOpen(true);
   };
 
@@ -365,13 +481,13 @@ const ClassManagement: React.FC = () => {
     }
 
     const schedulesWithAnyValue = (form.schedules || []).filter(
-      (s) => s.day || s.timeStart || s.timeEnd
+      (s) => s.day_of_week || s.start_time || s.end_time
     );
     const hasPartialSchedule = schedulesWithAnyValue.some(
-      (s) => !(s.day && s.timeStart && s.timeEnd)
+      (s) => !(s.day_of_week && s.start_time && s.end_time)
     );
     const hasAtLeastOneCompleteSchedule = schedulesWithAnyValue.some(
-      (s) => s.day && s.timeStart && s.timeEnd
+      (s) => s.day_of_week && s.start_time && s.end_time
     );
 
     if (
@@ -398,7 +514,7 @@ const ClassManagement: React.FC = () => {
     }
 
     const completeSchedules = schedulesWithAnyValue.filter(
-      (s) => s.day && s.timeStart && s.timeEnd
+      (s) => s.day_of_week && s.start_time && s.end_time
     );
 
     const toMinutes = (time: string) => {
@@ -407,7 +523,7 @@ const ClassManagement: React.FC = () => {
     };
 
     const hasInvalidRange = completeSchedules.some(
-      (s) => toMinutes(s.timeStart) >= toMinutes(s.timeEnd)
+      (s) => toMinutes(s.start_time) >= toMinutes(s.end_time)
     );
     if (hasInvalidRange) {
       toast({
@@ -418,7 +534,7 @@ const ClassManagement: React.FC = () => {
       return;
     }
 
-    const scheduleKey = (s: any) => `${s.day}|${s.timeStart}|${s.timeEnd}`;
+    const scheduleKey = (s: any) => `${s.day_of_week}|${s.start_time}|${s.end_time}`;
     const seen = new Set<string>();
     const hasDuplicate = completeSchedules.some((s) => {
       const key = scheduleKey(s);
@@ -436,7 +552,7 @@ const ClassManagement: React.FC = () => {
     }
 
     const byDay = completeSchedules.reduce<Record<string, any[]>>((acc, s) => {
-      const day = String(s.day);
+      const day = String(s.day_of_week);
       acc[day] = acc[day] || [];
       acc[day].push(s);
       return acc;
@@ -444,11 +560,11 @@ const ClassManagement: React.FC = () => {
 
     const hasOverlap = Object.values(byDay).some((list) => {
       const sorted = [...list].sort(
-        (a, b) => toMinutes(a.timeStart) - toMinutes(b.timeStart)
+        (a, b) => toMinutes(a.start_time) - toMinutes(b.start_time)
       );
       for (let i = 1; i < sorted.length; i++) {
-        const prevEnd = toMinutes(sorted[i - 1].timeEnd);
-        const currStart = toMinutes(sorted[i].timeStart);
+        const prevEnd = toMinutes(sorted[i - 1].end_time);
+        const currStart = toMinutes(sorted[i].start_time);
         if (currStart < prevEnd) return true;
       }
       return false;
@@ -472,9 +588,10 @@ const ClassManagement: React.FC = () => {
       section_id: Number(form.section_id),
       teacher_id: Number(form.teacher_id),
       schedules: completeSchedules.map((s) => ({
-        day: Number(s.day),
-        timeStart: s.timeStart,
-        timeEnd: s.timeEnd,
+        day_of_week: s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        room: s.room,
       })),
     };
 
@@ -547,9 +664,6 @@ const ClassManagement: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             Class Management
           </h1>
-          <p className="text-muted-foreground">
-            Configure classes, schedules, and section assignments
-          </p>
           {subjectFilter && (
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="secondary" className="gap-1 px-3 py-1">
@@ -567,7 +681,7 @@ const ClassManagement: React.FC = () => {
           )}
         </div>
 
-        <Dialog open={isClassDialogOpen} onOpenChange={setIsClassDialogOpen}>
+        <Dialog open={isClassDialogOpen} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild>
             <Button
               variant="gradient"
@@ -735,7 +849,7 @@ const ClassManagement: React.FC = () => {
                       setForm((f) => ({
                         ...f,
                         schedules: [
-                          { day: "", timeStart: "", timeEnd: "" },
+                          { day_of_week: "", start_time: "", end_time: "", room: "" },
                           ...(f.schedules || []),
                         ],
                       }))
@@ -781,13 +895,13 @@ const ClassManagement: React.FC = () => {
                             <Calendar className="w-4 h-4" /> Day
                           </label>
                           <Select
-                            value={schedule.day}
+                            value={schedule.day_of_week}
                             disabled={!form.department_id}
                             onValueChange={(value) =>
                               setForm((f) => ({
                                 ...f,
                                 schedules: (f.schedules || []).map((s, i) =>
-                                  i === index ? { ...s, day: value } : s
+                                  i === index ? { ...s, day_of_week: value } : s
                                 ),
                               }))
                             }
@@ -811,14 +925,14 @@ const ClassManagement: React.FC = () => {
                           </label>
                           <Input
                             type="time"
-                            value={schedule.timeStart}
+                            value={schedule.start_time}
                             disabled={!form.department_id}
                             onChange={(e) =>
                               setForm((f) => ({
                                 ...f,
                                 schedules: (f.schedules || []).map((s, i) =>
                                   i === index
-                                    ? { ...s, timeStart: e.target.value }
+                                    ? { ...s, start_time: e.target.value }
                                     : s
                                 ),
                               }))
@@ -832,18 +946,37 @@ const ClassManagement: React.FC = () => {
                           </label>
                           <Input
                             type="time"
-                            value={schedule.timeEnd}
+                            value={schedule.end_time}
                             disabled={!form.department_id}
                             onChange={(e) =>
                               setForm((f) => ({
                                 ...f,
                                 schedules: (f.schedules || []).map((s, i) =>
                                   i === index
-                                    ? { ...s, timeEnd: e.target.value }
+                                    ? { ...s, end_time: e.target.value }
                                     : s
                                 ),
                               }))
                             }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">Location</label>
+                          <Input
+                            value={schedule.room}
+                            disabled={!form.department_id}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                schedules: (f.schedules || []).map((s, i) =>
+                                  i === index
+                                    ? { ...s, room: e.target.value }
+                                    : s
+                                ),
+                              }))
+                            }
+                            placeholder="Room number or 'Online'"
                           />
                         </div>
                       </div>
@@ -857,7 +990,6 @@ const ClassManagement: React.FC = () => {
                 variant="outline"
                 onClick={() => {
                   setIsClassDialogOpen(false);
-                  resetForm();
                 }}
                 disabled={isSubmitting}
               >
@@ -975,14 +1107,46 @@ const ClassManagement: React.FC = () => {
                         s.email.toLowerCase().includes(term)
                       );
                     })
-                    .map((s) => (
+                    .map((s) => {
+                      // Debug: Check what properties the student actually has
+                      console.log("Student data for", s.first_name, ":", {
+                        id: s.id,
+                        subjects: s.subjects,
+                        subjectsLength: s.subjects?.length,
+                        selectedClass: selectedClass,
+                        selectedClassSubject: selectedClass?.subject,
+                        selectedClassStudents: selectedClass?.students
+                      });
+                      
+                      // Check multiple possible ways student might have subject data
+                      const isEnrolledInSameSubject = selectedClass && (
+                        // Check if student has subjects array with matching subject
+                        (s.subjects && Array.isArray(s.subjects) && s.subjects.some((subject: Subject) => 
+                          subject.id === selectedClass.subject.id
+                        )) ||
+                        // Check if student is already in current class students
+                        (selectedClass.students && Array.isArray(selectedClass.students) && selectedClass.students.some((student: any) => 
+                          student.id === s.id
+                        ))
+                      );
+                      
+                      console.log("Is enrolled in same subject:", isEnrolledInSameSubject, "for student:", s.first_name);
+                      
+                      return (
                       <div
                         key={s.id}
-                        className="flex items-center justify-between gap-2"
+                        className={`flex items-center justify-between gap-2 ${isEnrolledInSameSubject ? 'opacity-60' : ''}`}
                       >
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {s.first_name} {s.last_name}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium truncate">
+                              {s.first_name} {s.last_name}
+                            </span>
+                            {isEnrolledInSameSubject && (
+                              <Badge variant="destructive" className="text-xs">
+                                Already in {selectedClass?.subject.name}
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
                             {s.email}
@@ -991,12 +1155,28 @@ const ClassManagement: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => addStudentToClass(s.id)}
+                          onClick={() => {
+                            if (isEnrolledInSameSubject) {
+                              toast({
+                                title: "Cannot Add Student",
+                                description: `${s.first_name} ${s.last_name} is already enrolled in ${selectedClass?.subject.name}. Students can only be enrolled in one class per subject.`,
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            addStudentToClass(s.id);
+                          }}
+                          disabled={isEnrolledInSameSubject}
+                          className={isEnrolledInSameSubject ? 'cursor-not-allowed' : ''}
+                          title={isEnrolledInSameSubject ? 
+                            `Already enrolled in ${selectedClass?.subject.name}` : 
+                            `Add ${s.first_name} ${s.last_name} to class`
+                          }
                         >
-                          Add
+                          {isEnrolledInSameSubject ? 'Already Enrolled' : 'Add'}
                         </Button>
                       </div>
-                    ))}
+                    )})}
                 </div>
               </div>
             </div>
@@ -1102,10 +1282,18 @@ const ClassManagement: React.FC = () => {
                         <div className="text-sm space-y-1">
                           {cls.schedules.map((s, idx) => (
                             <div key={idx}>
-                              <div>{getDayLabel(s.day)}</div>
+                              <div>{getDayLabel(Number(s.day_of_week))}</div>
                               <div className="text-xs text-muted-foreground">
-                                {format24HourTo12HourTime(s.timeStart)} -{" "}
-                                {format24HourTo12HourTime(s.timeEnd)}
+                                {format24HourTo12HourTime(s.start_time)} -{" "}
+                                {format24HourTo12HourTime(s.end_time)}
+                                {s.room && (
+                                  <>
+                                    {" • "}
+                                    <span className="text-blue-600 font-medium">
+                                      {s.room}
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             </div>
                           ))}
