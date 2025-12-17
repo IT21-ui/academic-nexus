@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 const Grades: React.FC = () => {
   const { user } = useAuth();
   const [grades, setGrades] = useState([]);
-  const [sections, setSections] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,13 +20,13 @@ const Grades: React.FC = () => {
       try {
         setLoading(true);
         
-        const [gradesRes, sectionsRes] = await Promise.all([
+        const [gradesRes, subjectsRes] = await Promise.all([
           api.get(`/api/students/${user.id}/grades`),
-          api.get('/api/sections')
+          api.get(`/api/students/${user.id}/subjects`)
         ]);
 
         setGrades(gradesRes.data || []);
-        setSections(sectionsRes.data || []);
+        setSubjects(subjectsRes.data || []);
       } catch (error) {
         console.error('Error fetching grades data:', error);
       } finally {
@@ -37,9 +37,22 @@ const Grades: React.FC = () => {
     fetchGradesData();
   }, [user?.id]);
 
-  // Filter grades for student and calculate average
-  const averageGrade = grades.length > 0
-    ? parseFloat((grades.reduce((acc, g) => acc + (g.final_grade || 0), 0) / grades.length).toFixed(1))
+  // Merge subjects with grades to show all subjects even without grades
+  const mergedSubjects = subjects.map(subject => {
+    const grade = grades.find(g => g.subject_id === subject.id);
+    return {
+      ...subject,
+      midterm: grade?.midterm || null,
+      finals: grade?.finals || null,
+      final_grade: grade?.final_grade || null,
+      remarks: grade?.remarks || null
+    };
+  });
+
+  // Calculate average based only on subjects that have grades
+  const gradedSubjects = mergedSubjects.filter(s => s.final_grade !== null);
+  const averageGrade = gradedSubjects.length > 0
+    ? parseFloat((gradedSubjects.reduce((acc, s) => acc + (s.final_grade || 0), 0) / gradedSubjects.length).toFixed(1))
     : 0;
 
   const getGradeColor = (grade: number) => {
@@ -81,7 +94,7 @@ const Grades: React.FC = () => {
         <Card>
           <CardContent className="p-6">
             <p className="text-sm font-medium text-muted-foreground">Total Subjects</p>
-            <p className="text-3xl font-bold text-foreground mt-2">{grades.length}</p>
+            <p className="text-3xl font-bold text-foreground mt-2">{mergedSubjects.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -110,21 +123,26 @@ const Grades: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {grades.map((grade) => {
-                const finalGrade = grade.final_grade || 0;
+              {mergedSubjects.map((subject) => {
+                const finalGrade = subject.final_grade || 0;
                 return (
-                  <TableRow key={grade.id}>
-                    <TableCell className="font-medium">{grade.subject_code}</TableCell>
-                    <TableCell>{grade.subject_name}</TableCell>
-                    <TableCell className="text-center">{grade.midterm || '-'}</TableCell>
-                    <TableCell className="text-center">{grade.finals || '-'}</TableCell>
-                    <TableCell className={cn('text-center font-bold', getGradeColor(finalGrade))}>
-                      {finalGrade}
+                  <TableRow key={subject.id}>
+                    <TableCell className="font-medium">{subject.code}</TableCell>
+                    <TableCell>{subject.name}</TableCell>
+                    <TableCell className="text-center">{subject.midterm || '-'}</TableCell>
+                    <TableCell className="text-center">{subject.finals || '-'}</TableCell>
+                    <TableCell className={cn('text-center font-bold', 
+                      subject.final_grade !== null ? getGradeColor(finalGrade) : 'text-muted-foreground')}>
+                      {subject.final_grade !== null ? finalGrade : '-'}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={getGradeBadge(finalGrade).variant}>
-                        {grade.remarks || 'N/A'}
-                      </Badge>
+                      {subject.final_grade !== null ? (
+                        <Badge variant={getGradeBadge(finalGrade).variant}>
+                          {subject.remarks || 'N/A'}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">No Grade</Badge>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

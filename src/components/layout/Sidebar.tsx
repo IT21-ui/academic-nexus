@@ -1,22 +1,34 @@
-import React from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
+import React from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import {
-  LayoutDashboard,
+  Home,
   BookOpen,
+  Users,
+  FileSpreadsheet,
   Calendar,
   ClipboardCheck,
   GraduationCap,
-  Users,
+  UserCog,
   Settings,
   LogOut,
   Building,
-  UserCog,
-  FileSpreadsheet,
   ChevronLeft,
   Menu,
-} from "lucide-react";
+  LayoutDashboard,
+} from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -159,17 +171,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
       {/* Logout */}
       <div className="p-3 border-t border-sidebar-border">
-        <button
-          onClick={logout}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all duration-200",
-            "text-sidebar-foreground/70 hover:bg-destructive/20 hover:text-sidebar-foreground",
-            collapsed ? "justify-center" : ""
-          )}
-        >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="text-sm">Logout</span>}
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all duration-200",
+                "text-sidebar-foreground/70 hover:bg-destructive/20 hover:text-sidebar-foreground",
+                collapsed ? "justify-center" : ""
+              )}
+            >
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              {!collapsed && <span className="text-sm">Logout</span>}
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to logout?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={logout}>Logout</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </aside>
   );

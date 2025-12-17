@@ -46,6 +46,7 @@ import {
   GraduationCap,
   X,
   UserPlus,
+  Home,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import subjectApi from "@/services/subjectApi";
@@ -81,6 +82,10 @@ const SubjectManagement: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>("all");
+  const [selectedYearLevelFilter, setSelectedYearLevelFilter] = useState<string>("all");
+  const [selectedSectionDepartmentFilter, setSelectedSectionDepartmentFilter] = useState<string>("all");
+  const [selectedSectionYearLevelFilter, setSelectedSectionYearLevelFilter] = useState<string>("all");
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,30 +130,66 @@ const SubjectManagement: React.FC = () => {
     (s) =>
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ).filter(subject => {
+    const matchesDepartment = selectedDepartmentFilter === "all" || 
+      String(subject.department_id) === selectedDepartmentFilter;
+    const matchesYearLevel = selectedYearLevelFilter === "all" || 
+      String(subject.year_level) === selectedYearLevelFilter;
+    return matchesDepartment && matchesYearLevel;
+  });
+
+  // Categorize subjects by department and year level
+  const categorizedSubjects = filteredSubjects.reduce((acc, subject) => {
+    const deptName = subject.department?.name || 'Uncategorized';
+    const yearLevel = subject.year_level ? `Year ${subject.year_level}` : 'All Years';
+    
+    if (!acc[deptName]) {
+      acc[deptName] = {};
+    }
+    
+    if (!acc[deptName][yearLevel]) {
+      acc[deptName][yearLevel] = [];
+    }
+    
+    acc[deptName][yearLevel].push(subject);
+    return acc;
+  }, {} as Record<string, Record<string, Subject[]>>);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        const [subjectsRes, departmentsRes, studentsRes] = await Promise.all([
-          subjectApi.getSubjects(1, 100),
+        const [departmentsRes, studentsRes] = await Promise.all([
           departmentApi.getDepartments(1, 100),
           userApi.getStudents(1, 100),
         ]);
 
-        setSubjects(subjectsRes.data);
         setDepartments(departmentsRes.data);
 
         if (studentsRes && studentsRes.data) {
           setStudents(studentsRes.data);
         }
+
+        // Only fetch subjects if filters are not "all"
+        if (selectedDepartmentFilter !== "all" || selectedYearLevelFilter !== "all") {
+          const subjectsRes = await subjectApi.getSubjects(
+            1, 
+            100, 
+            "", 
+            selectedDepartmentFilter !== "all" ? parseInt(selectedDepartmentFilter) : undefined,
+            selectedYearLevelFilter !== "all" ? parseInt(selectedYearLevelFilter) : undefined
+          );
+          setSubjects(subjectsRes.data);
+        } else {
+          // Don't fetch all subjects by default - wait for user to select filters
+          setSubjects([]);
+        }
       } catch (error) {
         toast({
           title: "Error loading data",
           description:
-            "Unable to load subjects or departments from the server. Please try again.",
+            "Unable to load departments from the server. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -157,18 +198,44 @@ const SubjectManagement: React.FC = () => {
     };
 
     fetchData();
-  }, [toast]);
+  }, [toast, selectedDepartmentFilter, selectedYearLevelFilter]);
 
   const fetchSections = async (page: number = 1) => {
     try {
       setSectionsLoading(true);
 
-      const res = await sectionApi.getSections(page, 10);
-      setSections(res.data);
+      // Don't fetch sections if both filters are "all" - show guidance message instead
+      if (selectedSectionDepartmentFilter === "all" && selectedSectionYearLevelFilter === "all") {
+        console.log('Sections: Both filters are "all", skipping fetch');
+        setSections([]);
+        setSectionsPage(1);
+        setSectionsLastPage(1);
+        setSectionsTotal(0);
+        setSectionsLoading(false);
+        return;
+      }
+
+      console.log('Sections: Fetching with filters:', selectedSectionDepartmentFilter, selectedSectionYearLevelFilter);
+      const res = await sectionApi.getSections(page, 10, "");
+      let filteredSections = res.data;
+      
+      // Apply frontend filtering if filters are selected
+      if (selectedSectionDepartmentFilter !== "all" || selectedSectionYearLevelFilter !== "all") {
+        filteredSections = res.data.filter(section => {
+          const matchesDepartment = selectedSectionDepartmentFilter === "all" || 
+            String(section.department_id) === selectedSectionDepartmentFilter;
+          const matchesYearLevel = selectedSectionYearLevelFilter === "all" || 
+            String(section.year_level) === selectedSectionYearLevelFilter;
+          return matchesDepartment && matchesYearLevel;
+        });
+      }
+      
+      setSections(filteredSections);
       setSectionsPage(res.current_page);
       setSectionsLastPage(res.last_page);
-      setSectionsTotal(res.total);
+      setSectionsTotal(filteredSections.length);
     } catch (error) {
+      console.error('Sections API error:', error);
       toast({
         title: "Error loading sections",
         description:
@@ -182,7 +249,7 @@ const SubjectManagement: React.FC = () => {
 
   useEffect(() => {
     fetchSections(1);
-  }, [toast]);
+  }, [toast, selectedSectionDepartmentFilter, selectedSectionYearLevelFilter]);
 
   // Keep the section shown in the Manage Subjects modal in sync
   useEffect(() => {
@@ -308,7 +375,7 @@ const SubjectManagement: React.FC = () => {
   };
 
   const handleAddSection = async () => {
-    console.log(newSection);
+    console.log('Raw form data:', newSection);
     if (
       !newSection.name ||
       !newSection.department_id ||
@@ -325,26 +392,30 @@ const SubjectManagement: React.FC = () => {
 
     try {
       if (editingSectionId) {
-        await sectionApi.updateSection(editingSectionId, {
+        const updateData = {
           name: newSection.name,
-          room: newSection.room,
+          room: newSection.room || null,
           max_students: parseInt(newSection.max_students),
           department_id: parseInt(newSection.department_id),
           year_level: parseInt(newSection.year_level),
-        });
+        };
+        console.log('Updating section with data:', updateData);
+        await sectionApi.updateSection(editingSectionId, updateData);
 
         toast({
           title: "Section Updated",
           description: `${newSection.name} has been updated successfully.`,
         });
       } else {
-        await sectionApi.createSection({
+        const createData = {
           name: newSection.name,
-          room: newSection.room,
+          room: newSection.room || null,
           max_students: parseInt(newSection.max_students),
           department_id: parseInt(newSection.department_id),
           year_level: parseInt(newSection.year_level),
-        });
+        };
+        console.log('Creating section with data:', createData);
+        await sectionApi.createSection(createData);
 
         toast({
           title: "Section Created",
@@ -363,15 +434,35 @@ const SubjectManagement: React.FC = () => {
       setIsAddSectionOpen(false);
 
       // Refresh section list
-      const refreshed = await sectionApi.getSections(1, 100);
-      setSections(refreshed.data);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          "There was a problem creating the section. Please try again.",
-        variant: "destructive",
-      });
+      await fetchSections(sectionsPage);
+    } catch (error: any) {
+      console.error('Section creation error:', error);
+      
+      // Handle specific validation errors
+      if (error.response?.data?.message) {
+        const errorMessage = error.response.data.message;
+        
+        if (errorMessage.includes('already been taken') || errorMessage.includes('already exists')) {
+          toast({
+            title: "Duplicate Section Name",
+            description: `A section with name "${newSection.name}" already exists. Please use a different name.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Validation Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Error",
+          description:
+            "There was a problem creating the section. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -905,100 +996,231 @@ const SubjectManagement: React.FC = () => {
 
         <TabsContent value="subjects">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>All Subjects</CardTitle>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search subjects..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <CardHeader className="flex flex-col space-y-4">
+              <div className="flex flex-row items-center justify-between">
+                <CardTitle>All Subjects</CardTitle>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search subjects..."
+                    className="pl-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-row items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Department:</Label>
+                  <Select
+                    value={selectedDepartmentFilter}
+                    onValueChange={setSelectedDepartmentFilter}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Departments</SelectItem>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={String(dept.id)}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Year Level:</Label>
+                  <Select
+                    value={selectedYearLevelFilter}
+                    onValueChange={setSelectedYearLevelFilter}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="All years" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Years</SelectItem>
+                      {yearLevels.map((year) => (
+                        <SelectItem key={year.value} value={year.value}>
+                          {year.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {(selectedDepartmentFilter !== "all" || selectedYearLevelFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedDepartmentFilter("all");
+                      setSelectedYearLevelFilter("all");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Subject Name</TableHead>
-                    <TableHead>Units</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Year Level</TableHead>
-                    <TableHead>Class</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {!loading && filteredSubjects.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-muted-foreground py-6"
-                      >
-                        No subjects found.
-                      </TableCell>
-                    </TableRow>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-muted-foreground">Loading subjects...</div>
+                </div>
+              ) : Object.keys(categorizedSubjects).length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  {selectedDepartmentFilter === "all" && selectedYearLevelFilter === "all" ? (
+                    <div className="space-y-2">
+                      <p>Please select department and/or year level filters to view subjects.</p>
+                      <p className="text-sm">This helps improve performance by loading only the subjects you need.</p>
+                    </div>
+                  ) : (
+                    "No subjects found matching the selected filters."
                   )}
-
-                  {filteredSubjects.map((subject) => (
-                    <TableRow key={subject.id}>
-                      <TableCell>
-                        <Badge variant="secondary">{subject.code}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {subject.name}
-                      </TableCell>
-                      <TableCell>{subject.units}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {subject.department?.name || ""}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{subject.year_level || ""}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="gap-2 hover:bg-primary/10"
-                          onClick={() => handleViewClasses(subject)}
-                        >
-                          <Calendar className="w-4 h-4" />
-                          {subject.classes_count} classes
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleEditSubject(subject)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive"
-                            onClick={() => handleDeleteSubject(subject)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(categorizedSubjects).map(([departmentName, yearLevels]) => (
+                    <Card key={departmentName} className="border-border/50">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Home className="w-5 h-5 text-primary" />
+                          {departmentName}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {Object.entries(yearLevels).map(([yearLevel, subjects]) => (
+                          <div key={yearLevel}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <GraduationCap className="w-4 h-4 text-muted-foreground" />
+                              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                                {yearLevel}
+                              </h4>
+                              <Badge variant="secondary" className="text-xs">
+                                {subjects.length} subject{subjects.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            <div className="grid gap-3">
+                              {subjects.map((subject) => (
+                                <div
+                                  key={subject.id}
+                                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="secondary" className="font-mono">
+                                      {subject.code}
+                                    </Badge>
+                                    <div>
+                                      <div className="font-medium">{subject.name}</div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {subject.units} unit{subject.units !== 1 ? 's' : ''}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="gap-2 hover:bg-primary/10"
+                                      onClick={() => handleViewClasses(subject)}
+                                    >
+                                      <Calendar className="w-4 h-4" />
+                                      {subject.classes_count || 0} classes
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => handleEditSubject(subject)}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="text-destructive"
+                                      onClick={() => handleDeleteSubject(subject)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="sections">
           <Card>
-            <CardHeader>
-              <CardTitle>All Sections</CardTitle>
+            <CardHeader className="flex flex-col space-y-4">
+              <div className="flex flex-row items-center justify-between">
+                <CardTitle>All Sections</CardTitle>
+              </div>
+              
+              <div className="flex flex-row items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Department:</Label>
+                  <Select
+                    value={selectedSectionDepartmentFilter}
+                    onValueChange={setSelectedSectionDepartmentFilter}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Departments</SelectItem>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={String(dept.id)}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Year Level:</Label>
+                  <Select
+                    value={selectedSectionYearLevelFilter}
+                    onValueChange={setSelectedSectionYearLevelFilter}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="All years" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Years</SelectItem>
+                      {yearLevels.map((year) => (
+                        <SelectItem key={year.value} value={year.value}>
+                          {year.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {(selectedSectionDepartmentFilter !== "all" || selectedSectionYearLevelFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedSectionDepartmentFilter("all");
+                      setSelectedSectionYearLevelFilter("all");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {sectionsLoading && (
@@ -1023,12 +1245,19 @@ const SubjectManagement: React.FC = () => {
                         colSpan={6}
                         className="text-center text-muted-foreground py-6"
                       >
-                        No sections found.
+                        {selectedSectionDepartmentFilter === "all" && selectedSectionYearLevelFilter === "all" ? (
+                          <div className="space-y-2">
+                            <p>Please select department and/or year level filters to view sections.</p>
+                            <p className="text-sm">This helps improve performance by loading only the sections you need.</p>
+                          </div>
+                        ) : (
+                          "No sections found matching the selected filters."
+                        )}
                       </TableCell>
                     </TableRow>
                   )}
 
-                  {sections.map((section) => {
+                  {sections.length > 0 && sections.map((section) => {
                     return (
                       <TableRow key={section.id}>
                         <TableCell>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '@/services/apiClient';
 import { Users, Clock, MapPin, FileSpreadsheet, ClipboardCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +12,10 @@ const MyClasses: React.FC = () => {
   const navigate = useNavigate();
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const { user } = useAuth();
+
+  const itemsPerPage = 4;
 
   useEffect(() => {
     const fetchTeacherClasses = async () => {
@@ -30,6 +34,17 @@ const MyClasses: React.FC = () => {
 
     fetchTeacherClasses();
   }, [user?.id]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(classes.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentClasses = classes.slice(startIndex, endIndex);
+
+  // Reset to page 1 when classes change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [classes]);
 
   const getDayName = (dayNumber: number): string => {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -64,7 +79,7 @@ const MyClasses: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {classes.map((classItem) => (
+        {currentClasses.map((classItem) => (
           <Card key={classItem.id} className="hover:shadow-soft transition-shadow">
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -124,12 +139,48 @@ const MyClasses: React.FC = () => {
             </CardContent>
           </Card>
         ))}
-        {classes.length === 0 && (
+        {currentClasses.length === 0 && (
           <div className="col-span-full text-center py-8 text-muted-foreground">
-            No classes assigned yet.
+            {classes.length === 0 ? 'No classes assigned yet.' : 'No classes on this page.'}
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="gap-2"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </Button>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              ({classes.length} total classes)
+            </span>
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="gap-2"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

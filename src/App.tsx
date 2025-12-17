@@ -67,6 +67,10 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
             </Route>
 
+            {/* Public Routes - No authentication required */}
+            <Route path="/validate/cor" element={<CorValidation />} />
+            <Route path="/validate/cor/:validationCode" element={<CorValidation />} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

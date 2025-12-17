@@ -58,8 +58,10 @@ const GradeEntry: React.FC = () => {
 
   const getTeacherFilters = async () => {
     try {
+      if (!user?.id) return;
       setLoading(true);
-      const filters = await studentsApi.getClassFiltersForCurrentTeacher();
+      const filters = await studentsApi.getClassFilters(Number(user.id));
+
       if (!filters) return;
 
       setAllSections(
@@ -257,7 +259,7 @@ const GradeEntry: React.FC = () => {
     }));
   };
 
-  const handleSaveStudent = async (studentId: number) => {
+  const handlePostStudent = async (studentId: number) => {
     if (!selectedClassId) return;
 
     const current = grades[studentId] || { midterm: "", finals: "" };
@@ -277,14 +279,14 @@ const GradeEntry: React.FC = () => {
       }));
 
       toast({
-        title: "Saved",
-        description: "Grade has been saved.",
+        title: "Posted",
+        description: "Grade has been posted.",
       });
     } catch (error) {
-      console.error("Error saving grade:", error);
+      console.error("Error posting grade:", error);
       toast({
         title: "Error",
-        description: "Failed to save grade. Please try again.",
+        description: "Failed to post grade. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -531,11 +533,11 @@ const GradeEntry: React.FC = () => {
                         <Button
                           size="sm"
                           className="gap-2"
-                          onClick={() => handleSaveStudent(student.id)}
+                          onClick={() => handlePostStudent(student.id)}
                           disabled={loading || isSavingRow || !hasChanges}
                         >
                           <Save className="w-4 h-4" />
-                          Save
+                          Post
                         </Button>
                       </TableCell>
                     </TableRow>

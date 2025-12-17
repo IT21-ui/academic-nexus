@@ -9,8 +9,9 @@ import { BookOpen, Users, FileSpreadsheet, ClipboardCheck, Calendar, GraduationC
 
 const InstructorDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [classes, setClasses] = useState<any[]>([]);
+  const [teacherData, setTeacherData] = useState<any>(null);
   const [stats, setStats] = useState({
     totalClasses: 0,
     totalStudents: 0,
@@ -32,6 +33,14 @@ const InstructorDashboard: React.FC = () => {
 
       try {
         setLoading(true);
+        
+        // Fetch user data from users table which should include department
+        const userRes = await api.get(`/api/users/${user.id}`);
+        const userData = userRes.data;
+        console.log('Users table API Response:', userData);
+        console.log('User department from users table:', userData?.department);
+        console.log('User department name from users table:', userData?.department?.name);
+        setTeacherData(userData);
         
         // Fetch classes for this teacher
         const classesRes = await api.get(`/api/teachers/${user.id}/classes`);
@@ -95,8 +104,8 @@ const InstructorDashboard: React.FC = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold">{`${user?.first_name} ${user?.last_name}`}</h2>
-              <p className="text-primary-foreground/80">Instructor ID: {user?.id}</p>
-              <p className="text-primary-foreground/80">{user?.department?.name || 'Department'}</p>
+              <p className="text-primary-foreground/80">Instructor ID: IN{String(user?.id || '').padStart(2, '0')}</p>
+              <p className="text-primary-foreground/80">{teacherData?.department?.name?.toUpperCase() || user?.department?.name?.toUpperCase() || 'DEPARTMENT'}</p>
             </div>
           </div>
         </CardContent>

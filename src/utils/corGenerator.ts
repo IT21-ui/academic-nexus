@@ -2,6 +2,23 @@ import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import type { Class, RegistrationData } from '@/types/models';
 
+// Function to load image as base64
+const loadImageAsBase64 = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Failed to load image:', error);
+    throw error;
+  }
+};
+
 const getDayName = (dayNumber: number): string => {
   const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
   return days[dayNumber - 1] || "TBD";
@@ -19,6 +36,7 @@ const formatTimeRange = (start: string, end: string): string => {
   return `${formatTime(start)}${formatTime(end)}`;
 };
 
+
 export const generateCorPdf = async (data: RegistrationData) => {
   const {
     user,
@@ -27,10 +45,13 @@ export const generateCorPdf = async (data: RegistrationData) => {
     program = 'BSIT 2nd',
     registrarName = 'Grace B. Valde',
     registrarTitle = 'College Registrar',
-    dateEnrolled = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+    dateEnrolled,
     tuitionFee = 0.00,
     miscFee = 0.00,
   } = data;
+  
+  // Use provided dateEnrolled or fallback to current date
+  const enrollmentDate = dateEnrolled || new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -58,14 +79,24 @@ export const generateCorPdf = async (data: RegistrationData) => {
   // School Header Section
   let yPos = 25;
 
-  // School Logo placeholder (circle)
+  // School Logo
   const logoX = pageWidth / 2;
-  doc.setDrawColor(...maroonColor);
-  doc.setLineWidth(0.5);
-  doc.circle(logoX, yPos, 12);
-  doc.setFontSize(6);
-  doc.setTextColor(...maroonColor);
-  doc.text('LOGO', logoX, yPos + 1, { align: 'center' });
+  const logoSize = 24;
+  
+  try {
+    // Load and add the actual logo image
+    const logoDataUrl = await loadImageAsBase64('/system.png');
+    doc.addImage(logoDataUrl, 'PNG', logoX - logoSize/2, yPos - logoSize/2, logoSize, logoSize);
+  } catch (error) {
+    console.error('Failed to load logo, using placeholder:', error);
+    // Fallback: draw placeholder circle if logo fails to load
+    doc.setDrawColor(...maroonColor);
+    doc.setLineWidth(0.5);
+    doc.circle(logoX, yPos, 12);
+    doc.setFontSize(6);
+    doc.setTextColor(...maroonColor);
+    doc.text('LOGO', logoX, yPos + 1, { align: 'center' });
+  }
 
   // School Name and Address
   yPos += 18;
@@ -95,8 +126,8 @@ export const generateCorPdf = async (data: RegistrationData) => {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
 
-  const studentId = `${user?.id?.toString().padStart(8, '0') || '00000000'}`;
-  const studentName = `${user?.last_name || ''}, ${user?.first_name || ''} ${user?.first_name?.[0] || ''}.`;
+  const studentId = `ST${user?.id?.toString().padStart(8, '0') || '00000000'}`;
+  const studentName = `${user?.last_name || ''}, ${user?.first_name || ''}`;
 
   // Left side - Student ID and Name
   doc.text('Student ID', margin, yPos);
@@ -274,7 +305,7 @@ export const generateCorPdf = async (data: RegistrationData) => {
   // Date Enrolled
   yPos += 10;
   doc.setFontSize(10);
-  doc.text(`Date Enrolled : ${dateEnrolled}`, margin, yPos);
+  doc.text(`Date Enrolled : ${enrollmentDate}`, margin, yPos);
 
   // QR Code Section
   const qrY = yPos - 30;
@@ -300,8 +331,8 @@ export const generateCorPdf = async (data: RegistrationData) => {
       academicYear: academicYear
     };
     
-    const encodedData = btoa(JSON.stringify(validationData));
-    const validationUrl = `${window.location.origin}/validate/cor?data=${encodedData}`;
+    // Generate URL in the format expected by CorValidation page
+    const validationUrl = `${window.location.origin}/validate/cor?code=${validationData.validationCode}&student=${validationData.studentId}`;
     
     const qrCodeDataUrl = await QRCode.toDataURL(validationUrl, {
       width: 150,

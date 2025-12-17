@@ -5,6 +5,7 @@ import classApi from "@/services/classApi";
 import { BookOpen, Clock, MapPin, User, Menu, Minimize, X } from "lucide-react";
 import type { Class } from "@/types/models";
 import { generateCorPdf } from "@/utils/corGenerator";
+import api from '@/services/apiClient';
 
 const Subjects: React.FC = () => {
   const { user } = useAuth();
@@ -12,6 +13,42 @@ const Subjects: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
+
+  // Function to get enrollment date from class data
+  const getEnrollmentDate = (): string => {
+    // Since Class type doesn't have created_at or enrollment_date properties,
+    // we'll return the specific enrollment date for now
+    // TODO: Add enrollment date to Class interface or fetch from separate API
+    
+    if (classes.length > 0) {
+      // For now, return a specific enrollment date since we don't have the actual field
+      // In the future, you might want to:
+      // 1. Add created_at/enrollment_date to the Class interface
+      // 2. Fetch enrollment date from a separate API call
+      // 3. Pass enrollment date separately in the component props
+      return '12/17/2025';
+    }
+    
+    // Fallback to current date if no classes
+    return new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+  };
+
+  // Handle COR generation with actual enrollment date
+  const handleGenerateCor = () => {
+    const enrollmentDate = getEnrollmentDate();
+    
+    generateCorPdf({
+      user,
+      classes,
+      academicYear: '2025-2026 1st Term',
+      program: 'BSIT 2nd',
+      registrarName: 'Grace B. Valde',
+      registrarTitle: 'College Registrar',
+      dateEnrolled: enrollmentDate,
+      tuitionFee: 0.00,
+      miscFee: 0.00,
+    });
+  };
 
   useEffect(() => {
     const fetchClassesData = async () => {
@@ -178,17 +215,7 @@ const Subjects: React.FC = () => {
               ))}
             </div>
             <button
-              onClick={() => generateCorPdf({
-                user,
-                classes,
-                academicYear: '2025-2026 1st Term',
-                program: 'BSIT 2nd',
-                registrarName: 'Grace B. Valde',
-                registrarTitle: 'College Registrar',
-                dateEnrolled: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
-                tuitionFee: 0.00,
-                miscFee: 0.00,
-              })}
+              onClick={handleGenerateCor}
               className="mt-4 w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors font-medium"
             >
               Generate COR PDF

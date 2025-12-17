@@ -36,16 +36,23 @@ export const sectionApi = {
   // Create a new section
   async createSection(data: {
     name: string;
-    room: string;
+    room: string | null;
     max_students: number;
     department_id: number;
     year_level: number;
   }) {
-    const response = await api.post<ApiResponse<Section>>(
-      "/api/sections",
-      data
-    );
-    return response.data;
+    try {
+      console.log('Section API - Creating with data:', data);
+      const response = await api.post<ApiResponse<Section>>(
+        "/api/sections",
+        data
+      );
+      console.log('Section API - Create success:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Section API - Create error:', error.response?.data || error);
+      throw error;
+    }
   },
 
   // Update an existing section

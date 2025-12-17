@@ -5,6 +5,7 @@ import classApi from "@/services/classApi";
 import { Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Class } from "@/types/models";
+import { CardSkeleton } from '@/components/ui/SkeletonLoader';
 
 const Schedule: React.FC = () => {
   const { user } = useAuth();
@@ -20,30 +21,23 @@ const Schedule: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const allClasses: Class[] = [];
-        let page = 1;
-        let lastPage = 1;
+        // Fetch classes taught by this instructor
+        const res = await classApi.getClassesByTeacher(user.id);
 
-        do {
-          const res = await classApi.getClasses(page, 50, "");
-          console.log(`Student Schedule - Page ${page} API Response:`, res);
-          console.log(`Student Schedule - Page ${page} Response data:`, res.data);
-          allClasses.push(...(res.data || []));
-          lastPage = res.last_page || 1;
-          page += 1;
-        } while (page <= lastPage);
+        // Debug: Log the actual response structure
+        console.log('Instructor Schedule API Response:', res);
+        console.log('Response data:', res.data);
+        console.log('Is data array?', Array.isArray(res.data));
 
-        console.log('Student Schedule - All classes:', allClasses);
+        // Handle ApiResponse structure
+        const classesData = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
+          : [];
 
-        // If user is an instructor, show their classes; if student, show enrolled classes
-        const relevantClasses = user?.role === 'instructor' 
-          ? allClasses.filter((c) => c.teacher?.id === user.id)
-          : allClasses.filter((c) =>
-              (c.students || []).some((s) => s.id === user.id)
-            );
-
-        console.log('Student Schedule - Relevant classes:', relevantClasses);
-        setSchedule(relevantClasses);
+        console.log('Final classes data:', classesData);
+        setSchedule(classesData);
       } catch (error: any) {
         console.error("Failed to fetch schedule:", error);
         setError("Failed to load schedule");
@@ -62,8 +56,10 @@ const Schedule: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading schedule...</div>
+      <div className="space-y-4">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <CardSkeleton key={index} />
+        ))}
       </div>
     );
   }
@@ -76,12 +72,11 @@ const Schedule: React.FC = () => {
     return (
       <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Class Schedule</h1>
-          <p className="text-muted-foreground">Weekly class timetable</p>
+          <h1 className="text-2xl font-bold text-foreground">Teaching Schedule</h1>
         </div>
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
-            No classes scheduled for the current semester.
+            No classes assigned for the current semester.
           </CardContent>
         </Card>
       </div>
@@ -91,8 +86,7 @@ const Schedule: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Class Schedule</h1>
-        <p className="text-muted-foreground">Weekly class timetable</p>
+        <h1 className="text-2xl font-bold text-foreground">Teaching Schedule</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
@@ -179,9 +173,12 @@ const Schedule: React.FC = () => {
                               </div>
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {dayClass.teacher?.first_name} {dayClass.teacher?.last_name}
+                              {dayClass.students?.length === 0 
+                                ? 'No student enrolled' 
+                                : `${dayClass.students?.length || 0} ${dayClass.students?.length === 1 ? 'student' : 'students'} enrolled`
+                              }
                             </div>
-                                                      </div>
+                          </div>
                         </div>
                       ));
                     })}

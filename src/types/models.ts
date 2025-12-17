@@ -14,6 +14,8 @@ export interface User {
   department?: Department;
   year_level?: number;
   subjects?: Subject[];
+  student_id?: string;
+  teacher_id?: string;
   created_at?: string;
   updated_at?: string;
   classes_count?: number;
@@ -77,7 +79,8 @@ export interface Section {
   created_at?: string;
   updated_at?: string;
   students?: User[];
-  subjects?: Subject[];
+  subject?: Subject;
+  subjects?: Subject[]; // Multiple subjects assigned to this section
   department?: Department;
   student_count?: number;
   classes_count?: number;
@@ -99,6 +102,7 @@ export interface SubjectAssignment {
 export interface Grade {
   id: number;
   student_id: number;
+  section_id: number;
   midterm?: number;
   finals?: number;
   final_grade?: number;
@@ -109,6 +113,7 @@ export interface Grade {
   // Relationships
   student?: Student;
   class?: Class;
+  section?: Section;
 }
 
 export interface Attendance {

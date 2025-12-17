@@ -69,7 +69,8 @@ const AttendanceEntry: React.FC = () => {
       if (!user?.id) return;
       try {
         setLoading(true);
-        const filters = await studentsApi.getClassFiltersForCurrentTeacher();
+        const filters = await studentsApi.getClassFilters(Number(user.id));
+
         setAllSections(
           Array.isArray((filters as any).sections)
             ? (filters as any).sections
@@ -93,35 +94,25 @@ const AttendanceEntry: React.FC = () => {
   }, [user?.id]);
 
   const resolvedSectionOptions = allSections
-    .filter((sec) =>
-      selectedYearLevel === "all"
-        ? true
-        : sec.year_level === Number(selectedYearLevel)
-    )
+    .filter((sec) => sec.year_level === Number(selectedYearLevel))
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((sec) => ({ value: String(sec.id), label: sec.name }));
 
   const classOptions = allClasses
-    .filter((c) =>
-      selectedYearLevel === "all"
-        ? true
-        : c.year_level === Number(selectedYearLevel)
-    )
-    .filter((c) =>
-      selectedSection === "all"
-        ? true
-        : String(c.section?.id) === String(selectedSection)
-    )
+    .filter((c) => {
+      const matchesYearLevel = c.year_level === Number(selectedYearLevel);
+      const matchesSection = String(c.section?.id) === String(selectedSection);
+      return matchesYearLevel && matchesSection;
+    })
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((c) => ({ value: String(c.id), label: c.name }));
 
   useEffect(() => {
-    if (selectedSection === "all") return;
     const allowed = resolvedSectionOptions.some(
       (s) => String(s.value) === String(selectedSection)
     );
-    if (!allowed) {
-      setSelectedSection("all");
+    if (!allowed && resolvedSectionOptions.length > 0) {
+      setSelectedSection(String(resolvedSectionOptions[0].value));
     }
   }, [selectedYearLevel, resolvedSectionOptions, selectedSection]);
 
@@ -307,7 +298,6 @@ const AttendanceEntry: React.FC = () => {
                 <SelectValue placeholder="Year level" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Years</SelectItem>
                 {yearLevels.map((yl) => (
                   <SelectItem key={yl.value} value={yl.value}>
                     {yl.label}
@@ -321,7 +311,6 @@ const AttendanceEntry: React.FC = () => {
                 <SelectValue placeholder="Section" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Sections</SelectItem>
                 {loading ? (
                   <SelectItem value="__loading_sections" disabled>
                     Loading...

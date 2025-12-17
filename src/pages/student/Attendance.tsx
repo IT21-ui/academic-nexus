@@ -11,18 +11,30 @@ const Attendance: React.FC = () => {
   const { user } = useAuth();
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
     const fetchAttendanceData = async () => {
       if (!user?.id) return;
       
+      // Backend expects numeric user ID, not ST prefixed string
+      const numericStudentId = user.id;
+      
       try {
         setLoading(true);
         
-        const attendanceRes = await api.get(`/api/students/${user.id}/attendance`);
-        setAttendance(attendanceRes.data || []);
+        const attendanceRes = await api.get(`/api/students/${numericStudentId}/attendances`);
+        // Backend returns paginated data, extract the actual attendance records
+        setAttendance(attendanceRes.data.data || []);
       } catch (error) {
         console.error('Error fetching attendance data:', error);
+        // Check if it's a 404 error (API endpoint doesn't exist yet)
+        if (error.response?.status === 404) {
+          console.log('Attendance API endpoint not available yet - showing empty state');
+          setAttendance([]); // Set empty array to show "No attendance records found"
+        } else {
+          console.error('Unexpected error:', error);
+          setAttendance([]); // Set empty array as fallback
+        }
       } finally {
         setLoading(false);
       }
@@ -30,7 +42,7 @@ const Attendance: React.FC = () => {
 
     fetchAttendanceData();
   }, [user?.id]);
-  
+
   const presentCount = attendance.filter(a => a.status === 'present').length;
   const absentCount = attendance.filter(a => a.status === 'absent').length;
   const lateCount = attendance.filter(a => a.status === 'late').length;
@@ -129,8 +141,12 @@ const Attendance: React.FC = () => {
                 return (
                   <TableRow key={record.id}>
                     <TableCell>{record.date}</TableCell>
-                    <TableCell className="font-medium">{record.subject_code}</TableCell>
-                    <TableCell>{record.subject_name}</TableCell>
+                    <TableCell className="font-medium">
+                      {record.class?.subject?.code || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {record.class?.subject?.name || 'N/A'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-2">
                         {getStatusIcon(record.status)}
