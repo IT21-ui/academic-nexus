@@ -178,7 +178,17 @@ const Subjects: React.FC = () => {
               ))}
             </div>
             <button
-              onClick={() => generateCorPdf(user, classes)}
+              onClick={() => generateCorPdf({
+                user,
+                classes,
+                academicYear: '2025-2026 1st Term',
+                program: 'BSIT 2nd',
+                registrarName: 'Grace B. Valde',
+                registrarTitle: 'College Registrar',
+                dateEnrolled: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+                tuitionFee: 0.00,
+                miscFee: 0.00,
+              })}
               className="mt-4 w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors font-medium"
             >
               Generate COR PDF

@@ -1,193 +1,335 @@
 import jsPDF from 'jspdf';
-import type { Class } from '@/types/models';
+import QRCode from 'qrcode';
+import type { Class, RegistrationData } from '@/types/models';
 
-interface User {
-  id: number;
-  first_name: string;
-  last_name: string;
-  middle_name?: string;
-  role: string;
-}
-
-// Helper functions
 const getDayName = (dayNumber: number): string => {
-  const days = [
-    "Monday", "Tuesday", "Wednesday", "Thursday", 
-    "Friday", "Saturday", "Sunday"
-  ];
-  return days[dayNumber - 1] || "Unknown";
+  const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+  return days[dayNumber - 1] || "TBD";
 };
 
 const formatTime = (time: string): string => {
-  if (!time || typeof time !== "string") return "";
-  
   const [hours, minutes] = time.split(":");
   const hour = parseInt(hours);
-  if (isNaN(hour) || isNaN(parseInt(minutes))) return "";
-  
   const ampm = hour >= 12 ? "PM" : "AM";
   const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes} ${ampm}`;
+  return `${displayHour.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
-const formatUserId = (id: number, role: string): string => {
-  const idStr = id.toString().padStart(3, '0');
-  
-  switch (role.toLowerCase()) {
-    case 'student':
-      return `ST${idStr}`;
-    case 'instructor':
-      return `IN${idStr}`;
-    case 'admin':
-    case 'administrator':
-      return `ADM${idStr}`;
-    default:
-      return idStr;
-  }
+const formatTimeRange = (start: string, end: string): string => {
+  return `${formatTime(start)}${formatTime(end)}`;
 };
 
-export const generateCorPdf = (user: User | null, classes: Class[]) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = doc.internal.pageSize.getWidth();
+export const generateCorPdf = async (data: RegistrationData) => {
+  const {
+    user,
+    classes,
+    academicYear = '2025-2026 1st Term',
+    program = 'BSIT 2nd',
+    registrarName = 'Grace B. Valde',
+    registrarTitle = 'College Registrar',
+    dateEnrolled = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+    tuitionFee = 0.00,
+    miscFee = 0.00,
+  } = data;
 
-  doc.setFont('helvetica');
-
-  /* ================= DATE ================= */
-  doc.setFontSize(9);
-  doc.text(
-    new Date().toLocaleDateString(),
-    pageWidth - 20,
-    15,
-    { align: 'right' }
-  );
-
-  /* ================= HEADER ================= */
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Tagoloan Community College', pageWidth / 2, 25, { align: 'center' });
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Baluarte, Tagoloan, Misamis Oriental', pageWidth / 2, 30, { align: 'center' });
-  doc.text('Tel. No. (08822) 740-835', pageWidth / 2, 35, { align: 'center' });
-
-  /* ================= TITLE ================= */
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Certificate of Registration', pageWidth / 2, 45, { align: 'center' });
-
-  /* ================= STUDENT INFO ================= */
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-
-  doc.text(`Student ID : ${formatUserId(user?.id || 0, user?.role || '')}`, 20, 55);
-  doc.text('AY : 2025-2026 1st Term', pageWidth - 20, 55, { align: 'right' });
-
-  doc.text(
-    `Name       : ${user?.last_name}, ${user?.first_name} ${user?.middle_name ?? ''}`,
-    20,
-    60
-  );
-  doc.text('Program : BSIT 2nd', pageWidth - 20, 60, { align: 'right' });
-
-  /* ================= TABLE HEADER ================= */
-  let y = 70;
-  const roomColumnX = 142;
-  const statementBoxX = roomColumnX + 25;
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Subject', 20, y);
-  doc.text('Section', 50, y);
-  doc.text('Unit', 75, y);
-  doc.text('Day', 90, y);
-  doc.text('Time', 105, y);
-  doc.text('Room', 142, y);
-
-  doc.line(20, y + 2, pageWidth - 20, y + 2);
-
-  /* ================= SUBJECT ROWS ================= */
-  doc.setFont('helvetica', 'normal');
-  y += 8;
-
-  let totalUnits = 0;
-
-  classes.forEach((c: any) => {
-    const subject = c.subject || {};
-    const units = subject.units || 0;
-
-    if (units) totalUnits += units;
-
-    // Process each schedule as a separate row in the table
-    if (c.schedules && c.schedules.length > 0) {
-      c.schedules.forEach((schedule: any) => {
-        const dayStr = getDayName(schedule.day_of_week || 1);
-        const timeStr = `${formatTime(schedule.start_time || '')}-${formatTime(schedule.end_time || '')}`;
-        const roomStr = schedule.room || '';
-        
-        // Place each column in its proper position
-        doc.text(subject.code || '', 20, y);           // Subject
-        doc.text(c.section?.name || 'BSIT 2A', 50, y);   // Section  
-        doc.text(units ? units.toString() : '', 75, y); // Units
-        doc.text(dayStr, 90, y);                        // Day
-        doc.text(timeStr, 105, y);                      // Time
-        doc.text(roomStr, roomColumnX, y);              // Room
-        
-        y += 6; // Space between schedule rows
-      });
-    } else {
-      // No schedule case - still put in columns
-      doc.text(subject.code || '', 20, y);
-      doc.text(c.section?.name || 'BSIT 2A', 50, y);
-      doc.text(units ? units.toString() : '', 75, y);
-      doc.text('No Schedule', 90, y);
-      doc.text('', 105, y);
-      doc.text('', roomColumnX, y);
-      
-      y += 6;
-    }
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
   });
 
-  /* ================= TOTAL UNITS ================= */
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Total Units : ${totalUnits}`, 20, y + 5);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2;
 
-  /* ================= REGISTRAR ================= */
+  // Colors
+  const maroonColor: [number, number, number] = [128, 0, 0];
+  const blackColor: [number, number, number] = [0, 0, 0];
+  const grayColor: [number, number, number] = [100, 100, 100];
+
+  // Current date in top right
   doc.setFontSize(9);
-  doc.text('Grace B. Valde', 20, 250);
+  doc.setTextColor(...blackColor);
   doc.setFont('helvetica', 'normal');
-  doc.text('College Registrar', 20, 255);
+  const currentDate = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+  doc.text(currentDate, pageWidth - margin, 15, { align: 'right' });
 
-  doc.text('Date Enrolled : 07/21/2025', 20, 265);
+  // School Header Section
+  let yPos = 25;
 
-  /* ================= QR PLACEHOLDER ================= */
-  doc.rect(pageWidth - 50, 245, 30, 30);
+  // School Logo placeholder (circle)
+  const logoX = pageWidth / 2;
+  doc.setDrawColor(...maroonColor);
+  doc.setLineWidth(0.5);
+  doc.circle(logoX, yPos, 12);
+  doc.setFontSize(6);
+  doc.setTextColor(...maroonColor);
+  doc.text('LOGO', logoX, yPos + 1, { align: 'center' });
+
+  // School Name and Address
+  yPos += 18;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...maroonColor);
+  doc.text('Tagoloan Community College', pageWidth / 2, yPos, { align: 'center' });
+
+  yPos += 5;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...blackColor);
+  doc.text('Baluarte, Tagoloan, Misamis Oriental', pageWidth / 2, yPos, { align: 'center' });
+
+  yPos += 4;
+  doc.text('Tel. No. (08822) 740-835', pageWidth / 2, yPos, { align: 'center' });
+
+  // Certificate of Registration Title
+  yPos += 12;
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...blackColor);
+  doc.text('Certificate of Registration', pageWidth / 2, yPos, { align: 'center' });
+
+  // Student Information Row
+  yPos += 12;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+
+  const studentId = `${user?.id?.toString().padStart(8, '0') || '00000000'}`;
+  const studentName = `${user?.last_name || ''}, ${user?.first_name || ''} ${user?.first_name?.[0] || ''}.`;
+
+  // Left side - Student ID and Name
+  doc.text('Student ID', margin, yPos);
+  doc.text(`: ${studentId}`, margin + 25, yPos);
+
+  // Right side - AY
+  doc.text(`AY : ${academicYear}`, pageWidth - margin - 50, yPos);
+
+  yPos += 6;
+  doc.text('Name', margin, yPos);
+  doc.text(`: ${studentName}`, margin + 25, yPos);
+
+  // Right side - Program
+  doc.text(`Program : ${program}`, pageWidth - margin - 50, yPos);
+
+  // Table Section
+  yPos += 10;
+
+  // Table dimensions
+  const tableStartX = margin;
+  const tableWidth = contentWidth * 0.72;
+  const soaStartX = tableStartX + tableWidth + 5;
+  const soaWidth = contentWidth * 0.25;
+
+  // Column widths for main table
+  const colWidths = {
+    subject: 25,
+    section: 20,
+    unit: 12,
+    day: 15,
+    time: 35,
+    room: 20,
+  };
+
+  // Table Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...blackColor);
+
+  let xPos = tableStartX;
+  doc.text('Subject', xPos, yPos, { align: 'left' });
+  xPos += colWidths.subject;
+  doc.text('Section', xPos, yPos, { align: 'left' });
+  xPos += colWidths.section;
+  doc.text('Unit', xPos + colWidths.unit/2, yPos, { align: 'center' });
+  xPos += colWidths.unit;
+  doc.text('Day', xPos + colWidths.day/2, yPos, { align: 'center' });
+  xPos += colWidths.day;
+  doc.text('Time', xPos, yPos, { align: 'left' });
+  xPos += colWidths.time;
+  doc.text('Room', xPos, yPos, { align: 'left' });
+
+  // Statement of Account Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Statement of Account', soaStartX, yPos);
+
+  // Draw header line
+  yPos += 2;
+  doc.setDrawColor(...grayColor);
+  doc.setLineWidth(0.3);
+  doc.line(tableStartX, yPos, tableStartX + tableWidth, yPos);
+
+  // Table Body
+  yPos += 5;
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text('Scan to Verify', pageWidth - 35, 280, { align: 'center' });
-  doc.text('Online validation', pageWidth - 35, 285, { align: 'center' });
 
-  /* ================= STATEMENT OF ACCOUNT ================= */
-  const boxX = statementBoxX;
-  const boxY = 70;
-  const boxW = 40;
-  const boxH = 45;
+  // SOA items
+  const soaYStart = yPos;
+  doc.text('Tuition Fee', soaStartX, soaYStart);
+  doc.text(tuitionFee.toFixed(2), soaStartX + soaWidth - 5, soaYStart, { align: 'right' });
 
-  doc.rect(boxX, boxY, boxW, boxH);
+  doc.text('Misc Fee', soaStartX, soaYStart + 6);
+  doc.text(miscFee.toFixed(2), soaStartX + soaWidth - 5, soaYStart + 6, { align: 'right' });
 
-  doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('Statement of Account', boxX + 5, boxY + 8);
+  doc.text('Total', soaStartX, soaYStart + 16);
+  doc.text((tuitionFee + miscFee).toFixed(2), soaStartX + soaWidth - 5, soaYStart + 16, { align: 'right' });
 
+  // Subject rows
   doc.setFont('helvetica', 'normal');
-  doc.text('Tuition Fee', boxX + 5, boxY + 18);
-  doc.text('0.00', boxX + boxW - 5, boxY + 18, { align: 'right' });
+  if (!classes || !Array.isArray(classes)) {
+    doc.text('No classes enrolled', tableStartX, yPos);
+  } else {
+    classes.forEach((classItem: Class) => {
+    const subject = classItem.subject;
+    const section = classItem.section;
+    const schedules = classItem.schedules || [];
+    const hasSchedules = schedules.length > 0;
 
-  doc.text('Mics Fee', boxX + 5, boxY + 25);
-  doc.text('0.00', boxX + boxW - 5, boxY + 25, { align: 'right' });
+    if (hasSchedules) {
+      schedules.forEach((schedule, index) => {
+        xPos = tableStartX;
+        
+        // Always show subject, section, and units for each schedule row
+        doc.setTextColor(...maroonColor);
+        doc.text(subject?.code || 'N/A', xPos, yPos, { align: 'left' });
+        
+        doc.setTextColor(...blackColor);
+        xPos += colWidths.subject;
+        doc.text(section?.name || 'N/A', xPos, yPos, { align: 'left' });
+        
+        xPos += colWidths.section;
+        doc.text(subject?.units?.toString() || '0', xPos + colWidths.unit/2, yPos, { align: 'center' });
 
+        xPos += colWidths.unit;
+        doc.setTextColor(...maroonColor);
+        doc.text(getDayName(parseInt(schedule.day_of_week)), xPos + colWidths.day/2, yPos, { align: 'center' });
+
+        doc.setTextColor(...blackColor);
+        xPos += colWidths.day;
+        doc.text(formatTimeRange(schedule.start_time, schedule.end_time), xPos, yPos, { align: 'left' });
+
+        doc.setTextColor(...maroonColor);
+        xPos += colWidths.time;
+        doc.text(schedule?.room || 'TBD', xPos, yPos, { align: 'left' });
+
+        yPos += 5;
+      });
+    } else {
+      // No schedules - show TBD
+      xPos = tableStartX;
+      doc.setTextColor(...maroonColor);
+      doc.text(subject?.code || 'N/A', xPos, yPos, { align: 'left' });
+
+      doc.setTextColor(...blackColor);
+      xPos += colWidths.subject;
+      doc.text(section?.name || 'N/A', xPos, yPos, { align: 'left' });
+
+      xPos += colWidths.section;
+      doc.text(subject?.units?.toString() || '0', xPos + colWidths.unit/2, yPos, { align: 'center' });
+
+      xPos += colWidths.unit;
+      doc.text('TBD', xPos + colWidths.day/2, yPos, { align: 'center' });
+
+      xPos += colWidths.day;
+      doc.text('TBD', xPos, yPos, { align: 'left' });
+
+      xPos += colWidths.time;
+      doc.text('TBD', xPos, yPos, { align: 'left' });
+
+      yPos += 5;
+    }
+    });
+  }
+
+  // Total Units
+  yPos += 5;
+  const totalUnits = classes && Array.isArray(classes) 
+    ? classes.reduce((sum: number, item: Class) => sum + (item.subject?.units || 0), 0)
+    : 0;
+  doc.setTextColor(...maroonColor);
   doc.setFont('helvetica', 'bold');
-  doc.text('Total', boxX + 5, boxY + 35);
-  doc.text('0.00', boxX + boxW - 5, boxY + 35, { align: 'right' });
+  doc.setFontSize(9);
+  doc.text(`Total Units : ${totalUnits}`, tableStartX, yPos);
 
-  /* ================= SAVE ================= */
-  doc.save(`COR_${user?.last_name}_${user?.first_name}.pdf`);
+  // Registrar Section
+  yPos += 20;
+  doc.setTextColor(...blackColor);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+
+  // Registrar name with underline
+  doc.setFont('helvetica', 'bold');
+  doc.text(registrarName, margin, yPos);
+  doc.setLineWidth(0.2);
+  doc.line(margin, yPos + 1, margin + 40, yPos + 1);
+
+  yPos += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(registrarTitle, margin, yPos);
+
+  // Date Enrolled
+  yPos += 10;
+  doc.setFontSize(10);
+  doc.text(`Date Enrolled : ${dateEnrolled}`, margin, yPos);
+
+  // QR Code Section
+  const qrY = yPos - 30;
+  const qrX = pageWidth - margin - 35;
+  const qrSize = 30;
+
+  try {
+    const validationData = {
+      studentId: studentId,
+      studentName: studentName,
+      documentType: 'Certificate of Registration',
+      validationCode: `COR-${studentId}-${Date.now()}`,
+      issuedDate: new Date().toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric'
+      }),
+      status: 'ENROLLED',
+      program: program,
+      academicYear: academicYear
+    };
+    
+    const encodedData = btoa(JSON.stringify(validationData));
+    const validationUrl = `${window.location.origin}/validate/cor?data=${encodedData}`;
+    
+    const qrCodeDataUrl = await QRCode.toDataURL(validationUrl, {
+      width: 150,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+    });
+    doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+  } catch (error) {
+    // Fallback: draw placeholder rectangle
+    doc.setDrawColor(...blackColor);
+    doc.rect(qrX, qrY, qrSize, qrSize);
+    doc.setFontSize(6);
+    doc.text('QR Code', qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
+  }
+
+  // Scan to Verify text
+  doc.setFontSize(8);
+  doc.setTextColor(...maroonColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Scan to Verify', qrX + qrSize / 2, qrY + qrSize + 4, { align: 'center' });
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.text('Online validation', qrX + qrSize / 2, qrY + qrSize + 8, { align: 'center' });
+
+  // Save the PDF
+  const fileName = `COR_${user?.last_name || 'Student'}_${user?.first_name || ''}_${Date.now()}.pdf`;
+  doc.save(fileName);
 };

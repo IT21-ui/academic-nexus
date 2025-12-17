@@ -196,6 +196,18 @@ export interface Schedule {
   is_online?: boolean;
 }
 
+export interface RegistrationData {
+  user: User;
+  classes: Class[];
+  academicYear?: string;
+  program?: string;
+  registrarName?: string;
+  registrarTitle?: string;
+  dateEnrolled?: string;
+  tuitionFee?: number;
+  miscFee?: number;
+}
+
 export interface Class {
   id: number;
   subject: Subject;

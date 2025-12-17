@@ -20,6 +20,7 @@ import SubjectManagement from "./pages/admin/SubjectManagement";
 import TeacherManagement from "./pages/admin/TeacherManagement";
 import DepartmentManagement from "./pages/admin/DepartmentManagement";
 import NotFound from "./pages/NotFound";
+import CorValidation from "./pages/validation/CorValidation";
 
 import Schedule from "./pages/student/Schedule";
 import ClassManagement from "./pages/admin/ClassManagement";
