@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ import type { User, Department } from "@/types/models";
 
 const TeacherManagement: React.FC = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [teachers, setTeachers] = useState<User[]>([]);
   const [teachersPage, setTeachersPage] = useState(1);
   const [teachersLastPage, setTeachersLastPage] = useState(1);
@@ -317,6 +319,18 @@ const TeacherManagement: React.FC = () => {
     fetchTeachers(1);
   };
 
+  const handleViewClasses = (teacher: User) => {
+    navigate("/class-management", {
+      state: {
+        teacherFilter: {
+          id: teacher.id,
+          name: `${teacher.first_name} ${teacher.last_name}`,
+          email: teacher.email
+        }
+      }
+    });
+  };
+
   const filteredTeachers = teachers.filter((t) => {
     const term = searchTerm.toLowerCase();
     return (
@@ -539,7 +553,14 @@ const TeacherManagement: React.FC = () => {
                     <TableCell>{`${instructor.first_name} ${instructor.last_name}`}</TableCell>
                     <TableCell>{instructor.email}</TableCell>
                     <TableCell>{instructor.department?.name || ""}</TableCell>
-                    <TableCell>{instructor.classes_count ?? 0}</TableCell>
+                    <TableCell>
+                    <button
+                      onClick={() => handleViewClasses(instructor)}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      {instructor.teaching_classes?.length || 0}
+                    </button>
+                  </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button

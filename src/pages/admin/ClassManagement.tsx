@@ -84,6 +84,13 @@ const ClassManagement: React.FC = () => {
     code: string;
   } | null>(null);
 
+  // State for teacher filter from navigation
+  const [teacherFilter, setTeacherFilter] = useState<{
+    id: number;
+    name: string;
+    email: string;
+  } | null>(null);
+
   const [classes, setClasses] = useState<ClassModel[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
@@ -102,6 +109,7 @@ const ClassManagement: React.FC = () => {
   const [classesTotal, setClassesTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Filter states for classes
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState("all");
@@ -118,6 +126,16 @@ const ClassManagement: React.FC = () => {
     teacher_id: "",
     schedules: [{ day_of_week: "", start_time: "", end_time: "", room: "" }] as ScheduleForm[],
   });
+
+  const resetForm = () => {
+    setForm({
+      subject_id: "",
+      department_id: "",
+      section_id: "",
+      teacher_id: "",
+      schedules: [{ day_of_week: "", start_time: "", end_time: "", room: "" }] as ScheduleForm[],
+    });
+  };
 
   const openManageStudents = async (cls: ClassModel) => {
     setSelectedClass(cls);
@@ -328,13 +346,16 @@ const ClassManagement: React.FC = () => {
         10, 
         searchTerm,
         selectedDepartmentFilter !== "all" ? parseInt(selectedDepartmentFilter) : undefined,
-        selectedYearLevelFilter !== "all" ? parseInt(selectedYearLevelFilter) : undefined
+        selectedYearLevelFilter !== "all" ? parseInt(selectedYearLevelFilter) : undefined,
+        subjectFilter?.id, // Use subject filter if available
+        teacherFilter?.id // Use teacher filter if available
       );
 
       setClasses(res.data || []);
       setClassesPage(res.current_page);
       setClassesLastPage(res.last_page);
       setClassesTotal(res.total);
+      setInitialLoading(false); // Set initial loading to false when data is loaded
     } catch (error) {
       toast({
         title: "Error loading classes",
@@ -342,6 +363,7 @@ const ClassManagement: React.FC = () => {
           "There was a problem fetching classes from the server. Please try again.",
         variant: "destructive",
       });
+      setInitialLoading(false); // Also set to false on error
     } finally {
       setLoading(false);
     }
@@ -349,15 +371,32 @@ const ClassManagement: React.FC = () => {
 
   useEffect(() => {
     fetchMetadata();
-    fetchClasses(1);
+    // Don't fetch classes by default - wait for user to select filters
+    // Only fetch if there's a subject or teacher filter from navigation
+    if (location.state?.subjectFilter || location.state?.teacherFilter) {
+      // If there's a filter, set initial loading to false after metadata loads
+      setInitialLoading(false);
+    } else {
+      // No filters selected, set initial loading to false
+      setInitialLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Trigger fetchClasses when filters change
   useEffect(() => {
     setClassesPage(1); // Reset to page 1 when filters change
-    fetchClasses(1);
-  }, [selectedDepartmentFilter, selectedYearLevelFilter, searchTerm]);
+    // Only fetch if filters are selected (not "all") or if there's a subject/teacher filter
+    if (selectedDepartmentFilter !== "all" || selectedYearLevelFilter !== "all" || subjectFilter || teacherFilter) {
+      fetchClasses(1);
+    } else {
+      // Clear classes when no filters are selected
+      setClasses([]);
+      setClassesPage(1);
+      setClassesLastPage(1);
+      setClassesTotal(0);
+    }
+  }, [selectedDepartmentFilter, selectedYearLevelFilter, searchTerm, subjectFilter, teacherFilter]);
 
   // Handle subject filter from navigation state
   useEffect(() => {
@@ -375,20 +414,30 @@ const ClassManagement: React.FC = () => {
               subjects.find((s) => s.id === subjectFilter.id)?.department_id
             )
           : "",
+        section_id: "",
+        teacher_id: "",
+        schedules: [{ day_of_week: "", start_time: "", end_time: "", room: "" }],
       }));
     }
-  }, [location.state, subjects]);
+  }, [location.state?.subjectFilter, subjects]);
 
-  const resetForm = () => {
-    setForm({
-      subject_id: "",
-      department_id: "",
-      section_id: "",
-      teacher_id: "",
-      schedules: [{ day_of_week: "", start_time: "", end_time: "", room: "" }],
-    });
-    setEditingClassId(null);
-  };
+  // Handle teacher filter from navigation state
+  useEffect(() => {
+    if (location.state?.teacherFilter) {
+      const { teacherFilter } = location.state;
+      setTeacherFilter(teacherFilter);
+
+      // Pre-fill the form with the teacher filter
+      setForm((prev) => ({
+        ...prev,
+        teacher_id: String(teacherFilter.id),
+        subject_id: "",
+        department_id: "",
+        section_id: "",
+        schedules: [{ day_of_week: "", start_time: "", end_time: "", room: "" }],
+      }));
+    }
+  }, [location.state?.teacherFilter]);
 
   const clearSubjectFilter = () => {
     setSubjectFilter(null);
@@ -626,6 +675,14 @@ const ClassManagement: React.FC = () => {
           title: "Class Created",
           description: "The class has been created successfully.",
         });
+        
+        // Auto-set filters to show the newly created class
+        setSelectedDepartmentFilter(form.department_id);
+        // Get year level from the selected section
+        const selectedSection = sections.find(s => s.id === Number(form.section_id));
+        if (selectedSection?.year_level) {
+          setSelectedYearLevelFilter(String(selectedSection.year_level));
+        }
       }
 
       // Emit event to notify TeacherManagement about class assignment changes
@@ -646,6 +703,16 @@ const ClassManagement: React.FC = () => {
             apiResponse.message ||
             "The class has been saved, but the server returned a non-standard status.",
         });
+
+        // Auto-set filters to show the newly created class
+        if (!editingClassId) {
+          setSelectedDepartmentFilter(form.department_id);
+          // Get year level from the selected section
+          const selectedSection = sections.find(s => s.id === Number(form.section_id));
+          if (selectedSection?.year_level) {
+            setSelectedYearLevelFilter(String(selectedSection.year_level));
+          }
+        }
 
         // Emit event to notify TeacherManagement about class assignment changes
         eventBus.emit("class-assignment-changed");
@@ -1254,6 +1321,22 @@ const ClassManagement: React.FC = () => {
               </Select>
             </div>
             
+            {(selectedDepartmentFilter !== "all" || selectedYearLevelFilter !== "all" || subjectFilter || teacherFilter || searchTerm) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedDepartmentFilter("all");
+                  setSelectedYearLevelFilter("all");
+                  setSearchTerm("");
+                  setSubjectFilter(null);
+                  setTeacherFilter(null);
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+            
             <div className="relative w-64">
               <Input
                 placeholder="Search by subject or teacher..."
@@ -1270,9 +1353,9 @@ const ClassManagement: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {loading && (
+          {(loading || initialLoading) && (
             <p className="text-sm text-muted-foreground mb-2">
-              Loading classes...
+              {subjectFilter ? `Loading classes for ${subjectFilter.code} - ${subjectFilter.name}...` : 'Loading classes...'}
             </p>
           )}
 
@@ -1289,18 +1372,25 @@ const ClassManagement: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!loading && classes.length === 0 && (
+              {!(loading || initialLoading) && classes.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={7}
                     className="text-center text-muted-foreground py-6"
                   >
-                    No classes found.
+                    {selectedDepartmentFilter === "all" && selectedYearLevelFilter === "all" && !subjectFilter && !teacherFilter && !searchTerm ? (
+                      <div className="space-y-2">
+                        <p>Please select department and/or year level filters to view classes.</p>
+                        <p className="text-sm">This helps improve performance by loading only the classes you need.</p>
+                      </div>
+                    ) : (
+                      "No classes found matching the selected filters."
+                    )}
                   </TableCell>
                 </TableRow>
               )}
 
-              {classes.map((cls) => {
+              {!(loading || initialLoading) && classes.map((cls) => {
                 const isHighlighted =
                   subjectFilter && cls.subject.id === subjectFilter.id;
                 return (

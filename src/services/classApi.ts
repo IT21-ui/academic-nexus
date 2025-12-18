@@ -8,7 +8,9 @@ export const classApi = {
     perPage: number = 15,
     search: string = "",
     departmentId?: number,
-    yearLevel?: number
+    yearLevel?: number,
+    subjectId?: number,
+    teacherId?: number
   ): Promise<PaginatedResponse<Class>> {
     const params: any = {
       page,
@@ -18,6 +20,8 @@ export const classApi = {
     if (search) params.search = search;
     if (departmentId) params.department_id = departmentId;
     if (yearLevel) params.year_level = yearLevel;
+    if (subjectId) params.subject_id = subjectId;
+    if (teacherId) params.teacher_id = teacherId;
 
     const response = await api.get<PaginatedResponse<Class>>("/api/classes", {
       params,

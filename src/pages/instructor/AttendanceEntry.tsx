@@ -403,7 +403,7 @@ const AttendanceEntry: React.FC = () => {
                 students.map((student) => (
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">
-                      {student.student_id || student.id}
+                      {student.formatted_id || student.id}
                     </TableCell>
                     <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
                     <TableCell>

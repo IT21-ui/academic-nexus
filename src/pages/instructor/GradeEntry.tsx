@@ -479,7 +479,7 @@ const GradeEntry: React.FC = () => {
                   return (
                     <TableRow key={student.id}>
                       <TableCell className="font-medium">
-                        {student.id}
+                        {student.formatted_id || student.id}
                       </TableCell>
                       <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
                       <TableCell>

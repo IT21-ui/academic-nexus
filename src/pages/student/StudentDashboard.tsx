@@ -257,8 +257,8 @@ const StudentDashboard: React.FC = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold">{user?.first_name} {user?.last_name}</h2>
-              <p className="text-primary-foreground/80">Student ID: {user?.student_id}</p>
-              <p className="text-primary-foreground/80">{user?.department?.name} • {user?.year_level ? `${user.year_level} Year` : ''}</p>
+              <p className="text-primary-foreground/80">Student ID: ST{String(user?.id || '').padStart(4, '0')}</p>
+              <p className="text-primary-foreground/80">{user?.department?.name} • {user?.year_level ? `${user.year_level === 1 ? 'First' : user.year_level === 2 ? 'Second' : user.year_level === 3 ? 'Third' : user.year_level === 4 ? 'Fourth' : 'Fifth'} year` : ''}</p>
             </div>
           </div>
         </CardContent>

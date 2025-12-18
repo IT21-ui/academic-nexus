@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Settings, User, Bell, Shield, Palette, Globe, Key } from 'lucide-react';
+import { Settings, User, Bell, Shield, Key } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/apiClient';
 import { toast } from 'sonner';
@@ -75,10 +75,7 @@ export const SettingsModal: React.FC = () => {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'privacy', label: 'Privacy', icon: Shield },
     { id: 'security', label: 'Security', icon: Key },
-    { id: 'general', label: 'General', icon: Settings },
   ];
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -285,81 +282,6 @@ export const SettingsModal: React.FC = () => {
     </div>
   );
 
-  const renderAppearanceTab = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="theme">Theme</Label>
-        <Select value={formData.theme} onValueChange={(value) => handleInputChange('theme', value)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="light">Light</SelectItem>
-            <SelectItem value="dark">Dark</SelectItem>
-            <SelectItem value="system">System</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="language">Language</Label>
-        <Select value={formData.language} onValueChange={(value) => handleInputChange('language', value)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="en">English</SelectItem>
-            <SelectItem value="es">Spanish</SelectItem>
-            <SelectItem value="fr">French</SelectItem>
-            <SelectItem value="de">German</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-
-  const renderPrivacyTab = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium">Profile Visibility</p>
-          <p className="text-sm text-muted-foreground">Make your profile visible to other students</p>
-        </div>
-        <Switch
-          checked={formData.privacy.profile_visible}
-          onCheckedChange={(checked) => setFormData(prev => ({
-            ...prev,
-            privacy: { ...prev.privacy, profile_visible: checked }
-          }))}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium">Show Online Status</p>
-          <p className="text-sm text-muted-foreground">Let others see when you're online</p>
-        </div>
-        <Switch
-          checked={formData.privacy.show_online_status}
-          onCheckedChange={(checked) => setFormData(prev => ({
-            ...prev,
-            privacy: { ...prev.privacy, show_online_status: checked }
-          }))}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium">Share Academic Progress</p>
-          <p className="text-sm text-muted-foreground">Allow others to see your achievements</p>
-        </div>
-        <Switch
-          checked={formData.privacy.share_progress}
-          onCheckedChange={(checked) => setFormData(prev => ({
-            ...prev,
-            privacy: { ...prev.privacy, share_progress: checked }
-          }))}
-        />
-      </div>
-    </div>
-  );
 
   const renderSecurityTab = () => (
     <div className="space-y-6">
@@ -418,37 +340,6 @@ export const SettingsModal: React.FC = () => {
     </div>
   );
 
-  const renderGeneralTab = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="timezone">Timezone</Label>
-        <Select value={formData.timezone} onValueChange={(value) => handleInputChange('timezone', value)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="UTC">UTC</SelectItem>
-            <SelectItem value="EST">Eastern Time</SelectItem>
-            <SelectItem value="PST">Pacific Time</SelectItem>
-            <SelectItem value="CST">Central Time</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="dateFormat">Date Format</Label>
-        <Select value={formData.dateFormat} onValueChange={(value) => handleInputChange('dateFormat', value)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-            <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-            <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -456,14 +347,8 @@ export const SettingsModal: React.FC = () => {
         return renderProfileTab();
       case 'notifications':
         return renderNotificationsTab();
-      case 'appearance':
-        return renderAppearanceTab();
-      case 'privacy':
-        return renderPrivacyTab();
       case 'security':
         return renderSecurityTab();
-      case 'general':
-        return renderGeneralTab();
       default:
         return renderProfileTab();
     }

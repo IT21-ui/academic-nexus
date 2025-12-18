@@ -14,6 +14,7 @@ export interface User {
   department?: Department;
   year_level?: number;
   subjects?: Subject[];
+  teaching_classes?: Class[];
   student_id?: string;
   teacher_id?: string;
   created_at?: string;
