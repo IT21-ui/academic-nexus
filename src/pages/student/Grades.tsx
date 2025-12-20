@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/apiClient';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 const Grades: React.FC = () => {
   const { user } = useAuth();
@@ -25,10 +26,13 @@ const Grades: React.FC = () => {
           api.get(`/api/students/${user.id}/subjects`)
         ]);
 
-        setGrades(gradesRes.data || []);
-        setSubjects(subjectsRes.data || []);
+        const gradesData = gradesRes.data || [];
+        const subjectsData = subjectsRes.data || [];
+
+
+        setGrades(gradesData);
+        setSubjects(subjectsData);
       } catch (error) {
-        console.error('Error fetching grades data:', error);
       } finally {
         setLoading(false);
       }
@@ -37,7 +41,6 @@ const Grades: React.FC = () => {
     fetchGradesData();
   }, [user?.id]);
 
-  // Merge subjects with grades to show all subjects even without grades
   const mergedSubjects = subjects.map(subject => {
     const grade = grades.find(g => g.subject_id === subject.id);
     return {
@@ -49,7 +52,6 @@ const Grades: React.FC = () => {
     };
   });
 
-  // Calculate average based only on subjects that have grades
   const gradedSubjects = mergedSubjects.filter(s => s.final_grade !== null);
   const averageGrade = gradedSubjects.length > 0
     ? parseFloat((gradedSubjects.reduce((acc, s) => acc + (s.final_grade || 0), 0) / gradedSubjects.length).toFixed(1))
@@ -67,8 +69,32 @@ const Grades: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading grades...</div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">My Grades</h1>
+          <p className="text-muted-foreground">Academic performance for current semester</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Card key={index}>
+              <CardContent className="p-6">
+                <div className="h-4 bg-muted rounded mb-2 animate-pulse"></div>
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="h-8 w-16 bg-muted rounded animate-pulse"></div>
+                  <div className="h-5 w-5 bg-muted rounded animate-pulse"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Grade Report</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TableSkeleton />
+          </CardContent>
+        </Card>
       </div>
     );
   }

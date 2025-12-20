@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bell, X, Calendar, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import userApi from '@/services/userApi';
+import { studentApi } from '@/services/studentApi';
+import api from '@/services/apiClient';
 
 interface Notification {
   id: string;
@@ -13,44 +17,171 @@ interface Notification {
   read: boolean;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'grade',
-    title: 'New Grade Posted',
-    message: 'Your final grade for Mathematics 101 is now available',
-    time: '2 hours ago',
-    read: false,
-  },
-  {
-    id: '2',
-    type: 'attendance',
-    title: 'Attendance Updated',
-    message: 'Your attendance for Physics 201 has been recorded',
-    time: '5 hours ago',
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'schedule',
-    title: 'Class Schedule Change',
-    message: 'Chemistry 101 schedule updated for tomorrow',
-    time: '1 day ago',
-    read: true,
-  },
-  {
-    id: '4',
-    type: 'system',
-    title: 'System Maintenance',
-    message: 'System will be under maintenance this weekend',
-    time: '2 days ago',
-    read: true,
-  },
-];
-
 export const NotificationDropdown: React.FC = () => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user?.id) return;
+
+      const role = user.role?.toLowerCase();
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Admin notifications
+        if (role === 'admin' || role === 'administrator') {
+          const pending = await userApi.getRegistrationRequests('pending', 1, 5);
+          const data = pending?.data || [];
+
+          const mapped: Notification[] = data.map((req) => ({
+            id: String(req.id),
+            type: 'system',
+            title: req.role === 'instructor' ? 'Instructor registration pending' : 'Student registration pending',
+            message: `${req.first_name} ${req.last_name} (${req.email}) is awaiting approval.`,
+            time: req.request_date || timeLabel,
+            read: false,
+          }));
+
+          setNotifications(mapped);
+          return;
+        }
+
+        // Instructor: basic reminders from real classes
+        if (role === 'instructor') {
+          const res = await api.get(`/api/teachers/${user.id}/classes`);
+          const classes = res.data || [];
+
+          const hasStudents = classes.some((c: any) => (c.students || []).length > 0);
+          const hasSchedules = classes.some((c: any) => (c.schedules || []).length > 0);
+
+          const mapped: Notification[] = [];
+
+          if (hasStudents) {
+            mapped.push({
+              id: 'inst-grades',
+              type: 'grade',
+              title: 'Grades may need updating',
+              message: 'You have classes with enrolled students. Check if there are grades that still need to be posted.',
+              time: timeLabel,
+              read: false,
+            });
+          }
+
+          if (hasSchedules) {
+            mapped.push({
+              id: 'inst-attendance',
+              type: 'attendance',
+              title: 'Attendance may need updating',
+              message: 'Some scheduled classes may still need attendance records.',
+              time: timeLabel,
+              read: false,
+            });
+          }
+
+          setNotifications(mapped);
+          return;
+        }
+
+        // Student: real latest grade and attendance events, plus enrollment
+        if (role === 'student') {
+          let grades: any[] = [];
+          let attendance: any[] = [];
+          let classes: any[] = [];
+
+          try {
+            const gradesRes = await studentApi.getStudentGrades(user.id);
+            grades = (gradesRes?.data || gradesRes || []) as any[];
+          } catch (e) {
+            console.warn('Grades API failed:', e);
+          }
+
+          try {
+            const attendanceRes = await studentApi.getStudentAttendance(user.id);
+            attendance = (attendanceRes?.data || attendanceRes || []) as any[];
+          } catch (e) {
+            console.warn('Attendance API failed:', e);
+          }
+
+          try {
+            const classesRes = await studentApi.getStudentClasses(user.id);
+            classes = (classesRes?.data || classesRes || []) as any[];
+          } catch (e) {
+            console.warn('Classes API failed, using empty array:', e);
+          }
+
+          console.log('=== NOTIFICATION DEBUG ===');
+          console.log('User role:', role);
+          console.log('User ID:', user.id);
+          console.log('Grades data:', grades);
+          console.log('Grades length:', grades.length);
+          console.log('Sample grade:', grades[0]);
+          console.log('========================');
+
+          const mapped: Notification[] = [];
+
+          if (grades.length > 0) {
+            const latest = grades[0];
+            console.log('Creating grade notification for latest:', latest);
+            mapped.push({
+              id: `stud-grade-${latest.id || 'latest'}`,
+              type: 'grade',
+              title: 'New grade posted',
+              message: `A new grade has been posted for one of your subjects.`,
+              time: timeLabel,
+              read: false,
+            });
+          } else {
+            console.log('No grades found, skipping grade notification');
+          }
+
+          if (attendance.length > 0) {
+            const latest = attendance[0];
+            mapped.push({
+              id: `stud-att-${latest.id || 'latest'}`,
+              type: 'attendance',
+              title: 'Attendance updated',
+              message: `Your attendance for ${latest.date || 'a recent class'} has been recorded.`,
+              time: timeLabel,
+              read: false,
+            });
+          }
+
+          // Enrollment notification: if the student is enrolled in at least one class
+          if (classes.length > 0) {
+            const firstClass = classes[0];
+            const subjectName = firstClass.subject?.name || 'one of your subjects';
+
+            mapped.push({
+              id: `stud-enroll-${firstClass.id || 'any'}`,
+              type: 'schedule',
+              title: 'You are enrolled in a class',
+              message: `You are enrolled in ${subjectName}. Check your schedule for full details.`,
+              time: timeLabel,
+              read: false,
+            });
+          }
+
+          setNotifications(mapped);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to load notifications', err);
+        setError('Failed to load notifications');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, [user?.id, user?.role]);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const getNotificationIcon = (type: Notification['type']) => {
@@ -76,10 +207,6 @@ export const NotificationDropdown: React.FC = () => {
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const clearNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   return (
@@ -143,20 +270,14 @@ export const NotificationDropdown: React.FC = () => {
                       {getNotificationIcon(notification.type)}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className={cn(
-                            'text-sm font-medium truncate',
-                            !notification.read && 'text-foreground'
-                          )}>
+                          <p
+                            className={cn(
+                              'text-sm font-medium truncate',
+                              !notification.read && 'text-foreground'
+                            )}
+                          >
                             {notification.title}
                           </p>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                            onClick={() => clearNotification(notification.id)}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {notification.message}

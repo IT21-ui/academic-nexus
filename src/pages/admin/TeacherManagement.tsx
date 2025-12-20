@@ -34,6 +34,7 @@ import { useEventBus } from "@/hooks/useEventBus";
 import userApi from "@/services/userApi";
 import departmentApi from "@/services/departmentApi";
 import type { User, Department } from "@/types/models";
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 const TeacherManagement: React.FC = () => {
   const { toast } = useToast();
@@ -43,6 +44,7 @@ const TeacherManagement: React.FC = () => {
   const [teachersLastPage, setTeachersLastPage] = useState(1);
   const [teachersTotal, setTeachersTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>("all");
   const [loading, setLoading] = useState(false);
   const [isTeacherDialogOpen, setIsTeacherDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,7 +84,6 @@ const TeacherManagement: React.FC = () => {
 
   useEffect(() => {
     fetchTeachers(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -94,9 +95,9 @@ const TeacherManagement: React.FC = () => {
         }
       } catch (error) {
         toast({
-          title: "Error loading departments",
+          title: "Error loading programs",
           description:
-            "There was a problem fetching departments. Department options may be incomplete.",
+            "There was a problem fetching programs. Program options may be incomplete.",
           variant: "destructive",
         });
       }
@@ -105,7 +106,6 @@ const TeacherManagement: React.FC = () => {
     fetchDepartments();
   }, [toast]);
 
-  // Listen for class assignment changes
   useEventBus('class-assignment-changed', () => {
     fetchTeachers(teachersPage);
   });
@@ -146,7 +146,6 @@ const TeacherManagement: React.FC = () => {
     );
     if (!confirmed) return;
 
-    // Optimistic update - remove teacher from local state immediately
     const previousTeachers = [...teachers];
     setTeachers(prev => prev.filter(t => t.id !== teacher.id));
 
@@ -157,10 +156,8 @@ const TeacherManagement: React.FC = () => {
         description: `${teacher.first_name} ${teacher.last_name} has been deleted.`,
       });
       
-      // Refresh teachers list to ensure data consistency
       await fetchTeachers(teachersPage);
     } catch (error) {
-      // Rollback - restore the teacher if API call fails
       setTeachers(previousTeachers);
       
       toast({
@@ -187,8 +184,8 @@ const TeacherManagement: React.FC = () => {
 
     if (!selectedDepartmentId) {
       toast({
-        title: "Department required",
-        description: "Please select a department for this instructor.",
+        title: "Program required",
+        description: "Please select a program for this instructor.",
         variant: "destructive",
       });
       return;
@@ -238,10 +235,8 @@ const TeacherManagement: React.FC = () => {
           description: "The instructor has been updated successfully.",
         });
 
-        // Refresh teachers list to get updated data including classes_count
         await fetchTeachers(teachersPage);
       } else {
-        // Optimistic update - add teacher to local state immediately
         const optimisticTeacher: User = {
           id: Date.now(), // Temporary ID
           first_name: teacherForm.first_name,
@@ -273,7 +268,6 @@ const TeacherManagement: React.FC = () => {
             description: `${created.first_name} ${created.last_name} has been created successfully.`,
           });
 
-          // Refresh teachers list to get the real teacher with correct ID and classes_count
           await fetchTeachers(1); // Reset to page 1 to see the new teacher
         }
       }
@@ -281,7 +275,6 @@ const TeacherManagement: React.FC = () => {
       resetTeacherForm();
       setIsTeacherDialogOpen(false);
     } catch (error: any) {
-      // If API call fails, remove the optimistic teacher
       if (!editingTeacherId) {
         setTeachers(prev => prev.slice(1));
       }
@@ -333,10 +326,13 @@ const TeacherManagement: React.FC = () => {
 
   const filteredTeachers = teachers.filter((t) => {
     const term = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       `${t.first_name} ${t.last_name}`.toLowerCase().includes(term) ||
       t.email.toLowerCase().includes(term)
     );
+    const matchesDepartment = selectedDepartmentFilter === "all" || 
+      String(t.department_id) === selectedDepartmentFilter;
+    return matchesSearch && matchesDepartment;
   });
 
   return (
@@ -415,13 +411,13 @@ const TeacherManagement: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
+                <Label htmlFor="department">Program</Label>
                 <Select
                   value={selectedDepartmentId}
                   onValueChange={(value) => setSelectedDepartmentId(value)}
                 >
                   <SelectTrigger id="department">
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder="Select program" />
                   </SelectTrigger>
                   <SelectContent>
                     {departments.map((dept) => (
@@ -492,8 +488,8 @@ const TeacherManagement: React.FC = () => {
       <div className="border rounded-lg">
         <div className="flex flex-row items-center justify-between p-6 border-b">
           <h2 className="text-lg font-semibold">All Teachers</h2>
-          <div className="relative w-64 flex items-center gap-2">
-            <div className="relative flex-1">
+          <div className="flex items-center gap-4">
+            <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search teachers..."
@@ -507,16 +503,45 @@ const TeacherManagement: React.FC = () => {
                 }}
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium">Program:</Label>
+              <Select
+                value={selectedDepartmentFilter}
+                onValueChange={setSelectedDepartmentFilter}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All programs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Programs</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={String(dept.id)}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button variant="outline" size="sm" onClick={handleSearchSubmit}>
               Search
             </Button>
+            {(selectedDepartmentFilter !== "all" || searchTerm) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedDepartmentFilter("all");
+                  setSearchTerm("");
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
         </div>
         <div className="p-6">
           {loading && (
-            <p className="text-sm text-muted-foreground mb-2">
-              Loading teachers...
-            </p>
+            <TableSkeleton />
           )}
 
           <Table>
@@ -525,7 +550,7 @@ const TeacherManagement: React.FC = () => {
                 <TableHead>ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Department</TableHead>
+                <TableHead>Program</TableHead>
                 <TableHead>Assigned Classes</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -548,7 +573,7 @@ const TeacherManagement: React.FC = () => {
                 return filteredTeachers.map((instructor) => (
                   <TableRow key={instructor.id}>
                     <TableCell className="font-medium">
-                      {instructor.id}
+                      {instructor.formatted_id || instructor.id}
                     </TableCell>
                     <TableCell>{`${instructor.first_name} ${instructor.last_name}`}</TableCell>
                     <TableCell>{instructor.email}</TableCell>

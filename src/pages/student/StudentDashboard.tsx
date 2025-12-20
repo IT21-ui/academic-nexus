@@ -11,6 +11,7 @@ import studentApi from '@/services/studentApi';
 import classApi from '@/services/classApi';
 import subjectApi from '@/services/subjectApi';
 import type { Grade, Attendance, Class, Subject } from '@/types/models';
+import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
 
 const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -31,36 +32,25 @@ const StudentDashboard: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch data with fallbacks for missing endpoints
         try {
-          // Try student-specific endpoints first
           const [gradesRes, attendanceRes] = await Promise.all([
             studentApi.getStudentGrades(user.id),
             studentApi.getStudentAttendance(user.id)
           ]);
           
-          // Handle paginated responses - extract data property if it exists
           const gradesData = (gradesRes?.data || gradesRes || []);
-          console.log('Raw grades response:', gradesRes);
-          console.log('Processed grades data:', gradesData);
-          console.log('Grades data length:', gradesData?.length);
           setGrades(gradesData);
           const attendanceData = (attendanceRes?.data || attendanceRes || []);
           setAttendance(attendanceData);
         } catch (error) {
-          console.error('Student API failed, using fallbacks:', error);
-          // Set empty arrays for now - could add fallback logic here
           setGrades([]);
           setAttendance([]);
         }
 
-        // Try student classes endpoint, fallback to general class API
         try {
           const classesRes = await studentApi.getStudentClasses(user.id);
           setClasses((classesRes?.data || classesRes || []));
         } catch (error) {
-          console.log('Student classes endpoint not available, using fallback');
-          // Fallback to general class API and filter for student
           const allClassesRes = await classApi.getClasses(1, 100, '');
           const studentClasses = (allClassesRes.data || []).filter(c => 
             (c.students || []).some(s => s.id === user.id)
@@ -68,11 +58,9 @@ const StudentDashboard: React.FC = () => {
           setClasses(studentClasses);
         }
 
-        // Fetch subjects (always works)
         const subjectsRes = await subjectApi.getSubjects(1, 100);
         setSubjects(subjectsRes.data || []);
       } catch (error: any) {
-        console.error('Failed to fetch dashboard data:', error);
         setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
@@ -82,7 +70,6 @@ const StudentDashboard: React.FC = () => {
     fetchDashboardData();
   }, [user?.id]);
 
-  // Helper function to format time
   const formatTime = (time: string): string => {
     if (!time || typeof time !== "string") return "";
     
@@ -95,7 +82,6 @@ const StudentDashboard: React.FC = () => {
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  // Get today's classes and transform to ClassItem format with safety checks
   const todayClasses = (classes || []).filter(c => 
     c?.schedules?.some(s => {
       try {
@@ -109,7 +95,6 @@ const StudentDashboard: React.FC = () => {
     })
   ).map((c, i) => {
     try {
-      // Get today's schedule for this class
       const todaySchedule = c?.schedules?.find(s => {
         try {
           const today = new Date();
@@ -128,7 +113,6 @@ const StudentDashboard: React.FC = () => {
         isNext: i === 0,
       };
     } catch (error) {
-      console.error('Error processing class:', error);
       return {
         time: 'Time TBD',
         subject: 'Unknown Subject',
@@ -138,27 +122,21 @@ const StudentDashboard: React.FC = () => {
     }
   });
 
-  // Calculate attendance statistics with safety checks
   const presentCount = attendance?.filter(a => a?.status === 'present')?.length || 0;
   const totalAttendance = attendance?.length || 0;
   const attendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0;
 
-  // Calculate average grade with safety checks
   const averageGrade = grades?.length > 0
     ? Math.round(grades.reduce((acc, g) => {
-        // Average midterm and final grades together, or use whatever is available
         const midterm = g?.midterm || 0;
         const final = g?.final_grade || g?.finals || 0;
         let grade = 0;
         
         if (midterm && final) {
-          // Both midterm and final exist - average them
           grade = (midterm + final) / 2;
         } else if (final) {
-          // Only final exists
           grade = final;
         } else if (midterm) {
-          // Only midterm exists
           grade = midterm;
         }
         
@@ -173,10 +151,8 @@ const StudentDashboard: React.FC = () => {
     { icon: BookOpen, label: 'Subjects', onClick: () => navigate('/subjects') },
   ];
 
-  // Get subject info from section for recent grades with safety checks
   const getGradeSubjectInfo = (sectionId: number) => {
     try {
-      // Find subject from classes
       const classWithSection = classes?.find(c => c?.section?.id === sectionId);
       if (classWithSection?.subject?.name) {
         return classWithSection.subject.name;
@@ -184,33 +160,26 @@ const StudentDashboard: React.FC = () => {
       
       return 'Unknown Subject';
     } catch (error) {
-      console.error('Error getting subject info:', error);
       return 'Unknown Subject';
     }
   };
 
   const recentGrades = grades?.slice(0, 4).map(g => {
-    // Calculate grade using same logic as average calculation
     const midterm = g?.midterm || 0;
     const final = g?.final_grade || g?.finals || 0;
     let grade = 0;
     
     if (midterm && final) {
-      // Both midterm and final exist - average them
       grade = (midterm + final) / 2;
     } else if (final) {
-      // Only final exists
       grade = final;
     } else if (midterm) {
-      // Only midterm exists
       grade = midterm;
     }
     
-    // If grade exists but status is undefined, consider it approved
     const hasGrade = grade > 0;
     const gradeStatus = g?.status || (hasGrade ? 'approved' : 'pending');
     
-    // Handle "posted" status - treat it as "approved" (type-safe check)
     const displayStatus = (gradeStatus as string) === 'posted' ? 'approved' : gradeStatus;
     
     return {
@@ -220,16 +189,10 @@ const StudentDashboard: React.FC = () => {
     };
   }) || [];
 
-  // Loading state
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading dashboard...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
-  // Error state
   if (error) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -257,7 +220,7 @@ const StudentDashboard: React.FC = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold">{user?.first_name} {user?.last_name}</h2>
-              <p className="text-primary-foreground/80">Student ID: ST{String(user?.id || '').padStart(4, '0')}</p>
+              <p className="text-primary-foreground/80">Student ID: {user?.formatted_id || `ST${String(user?.id || '').padStart(4, '0')}`}</p>
               <p className="text-primary-foreground/80">{user?.department?.name} • {user?.year_level ? `${user.year_level === 1 ? 'First' : user.year_level === 2 ? 'Second' : user.year_level === 3 ? 'Third' : user.year_level === 4 ? 'Fourth' : 'Fifth'} year` : ''}</p>
             </div>
           </div>
@@ -269,7 +232,6 @@ const StudentDashboard: React.FC = () => {
         <StatCard
           title="Enrolled Subjects"
           value={(() => {
-            // Count unique subjects from student's enrolled classes
             const uniqueSubjects = new Set();
             classes?.forEach(c => {
               if (c?.subject?.id) {
@@ -296,7 +258,6 @@ const StudentDashboard: React.FC = () => {
         <StatCard
           title="Total Units"
           value={(() => {
-            // Get unique subjects from student's enrolled classes
             const uniqueSubjects = new Set();
             classes?.forEach(c => {
               if (c?.subject?.id) {
@@ -304,7 +265,6 @@ const StudentDashboard: React.FC = () => {
               }
             });
             
-            // Calculate units from unique subjects
             let totalUnits = 0;
             uniqueSubjects.forEach(subjectId => {
               const subject = subjects?.find(s => s?.id === subjectId);

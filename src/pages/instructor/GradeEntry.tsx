@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import studentsApi from "@/services/teacher-api/studentsApi";
 import gradesApi from "@/services/teacher-api/gradesApi";
 import { yearLevels } from "@/lib/contants";
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 const GradeEntry: React.FC = () => {
   const { toast } = useToast();
@@ -399,14 +400,7 @@ const GradeEntry: React.FC = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-10">
-                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Loading...</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <TableSkeleton />
               ) : null}
               {!loading && filteredStudents.length === 0 ? (
                 <TableRow>

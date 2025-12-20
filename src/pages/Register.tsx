@@ -54,6 +54,8 @@ const Register: React.FC = () => {
     confirmPassword: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
@@ -61,8 +63,8 @@ const Register: React.FC = () => {
         setDepartments(response.data);
       } catch (error) {
         toast({
-          title: "Error loading departments",
-          description: "Unable to load departments. Please try again.",
+          title: "Error loading programs",
+          description: "Unable to load programs. Please try again.",
           variant: "destructive",
         });
       }
@@ -73,33 +75,67 @@ const Register: React.FC = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Passwords do not match. Please try again.",
-        variant: "destructive",
-      });
-      return;
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required.";
     }
 
-    // Find selected department ID (if any) based on name
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required.";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required.";
+    } else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address.";
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Mobile number is required.";
+    }
+
+    if (!formData.department) {
+      newErrors.department = "Program is required.";
+    }
+
+    if (registrationType === "student" && !formData.yearLevel) {
+      newErrors.yearLevel = "Year level is required for students.";
+    }
+
+    if (!formData.password || formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters.";
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password.";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match.";
+    }
+
     const selectedDept = departments.find(
       (dept) => dept.name === formData.department
     );
 
     if (!selectedDept) {
-      toast({
-        title: "Department Required",
-        description: "Please select a valid department.",
-        variant: "destructive",
-      });
+      newErrors.department = newErrors.department || "Please select a valid program.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    setErrors({});
 
     setIsLoading(true);
 
@@ -108,6 +144,7 @@ const Register: React.FC = () => {
         first_name: formData.firstName,
         last_name: formData.lastName,
         email: formData.email,
+        phone: formData.phone,
         role: registrationType === "student" ? "student" : "instructor",
         password: formData.password,
         status: "pending",
@@ -115,7 +152,6 @@ const Register: React.FC = () => {
         year_level: formData.yearLevel ? Number(formData.yearLevel) : null,
       });
 
-      // If the request did not throw, assume success (backend may not wrap in ApiResponse)
       const createdEmail =
         (response as any)?.data?.email ||
         (response as any)?.email ||
@@ -129,13 +165,43 @@ const Register: React.FC = () => {
           createdEmail +
           ".",
       });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          "There was a problem connecting to the server. Please try again.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      if (error?.response?.status === 422 && error.response.data?.errors) {
+        const backendErrors = error.response.data
+          .errors as Record<string, string[]>;
+        const mapped: Record<string, string> = {};
+
+        if (backendErrors.first_name?.[0]) {
+          mapped.firstName = backendErrors.first_name[0];
+        }
+        if (backendErrors.last_name?.[0]) {
+          mapped.lastName = backendErrors.last_name[0];
+        }
+        if (backendErrors.email?.[0]) {
+          mapped.email = backendErrors.email[0];
+        }
+        if (backendErrors.phone?.[0]) {
+          mapped.phone = backendErrors.phone[0];
+        }
+        if (backendErrors.password?.[0]) {
+          mapped.password = backendErrors.password[0];
+        }
+        if (backendErrors.department_id?.[0]) {
+          mapped.department = backendErrors.department_id[0];
+        }
+        if (backendErrors.year_level?.[0]) {
+          mapped.yearLevel = backendErrors.year_level[0];
+        }
+
+        setErrors(mapped);
+      } else {
+        toast({
+          title: "Error",
+          description:
+            "There was a problem connecting to the server. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -153,10 +219,7 @@ const Register: React.FC = () => {
               Registration Submitted!
             </h2>
             <p className="text-muted-foreground mb-6">
-              Your registration is pending admin approval. Once approved, you
-              will receive your{" "}
-              {registrationType === "student" ? "Student ID" : "Instructor ID"}{" "}
-              via email.
+              Your registration is pending admin approval. Once approved, you can log in and access your account.
             </p>
             <Button variant="gradient" onClick={() => navigate("/login")}>
               Back to Login
@@ -290,8 +353,17 @@ const Register: React.FC = () => {
                       onChange={(e) =>
                         handleInputChange("firstName", e.target.value)
                       }
-                      required
+                      aria-invalid={!!errors.firstName}
+                      className={cn(
+                        errors.firstName &&
+                          "border-destructive focus-visible:ring-destructive"
+                      )}
                     />
+                    {errors.firstName && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {errors.firstName}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
@@ -302,8 +374,17 @@ const Register: React.FC = () => {
                       onChange={(e) =>
                         handleInputChange("lastName", e.target.value)
                       }
-                      required
+                      aria-invalid={!!errors.lastName}
+                      className={cn(
+                        errors.lastName &&
+                          "border-destructive focus-visible:ring-destructive"
+                      )}
                     />
+                    {errors.lastName && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {errors.lastName}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -315,8 +396,17 @@ const Register: React.FC = () => {
                     placeholder="JuanDelaCruz@email.com"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
-                    required
+                    aria-invalid={!!errors.email}
+                    className={cn(
+                      errors.email &&
+                        "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {errors.email && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -324,23 +414,37 @@ const Register: React.FC = () => {
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+63 (555) 123-4567"
+                    placeholder="09977502588"
                     value={formData.phone}
                     onChange={(e) => handleInputChange("phone", e.target.value)}
-                    required
+                    aria-invalid={!!errors.phone}
+                    className={cn(
+                      errors.phone &&
+                        "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {errors.phone && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {errors.phone}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
+                  <Label htmlFor="department">Program</Label>
                   <Select
                     value={formData.department}
                     onValueChange={(value) =>
                       handleInputChange("department", value)
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
+                    <SelectTrigger
+                      className={cn(
+                        errors.department &&
+                          "border-destructive focus-visible:ring-destructive"
+                      )}
+                    >
+                      <SelectValue placeholder="Select program" />
                     </SelectTrigger>
                     <SelectContent>
                       {departments.map((dept) => (
@@ -361,7 +465,12 @@ const Register: React.FC = () => {
                         handleInputChange("yearLevel", value)
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger
+                        className={cn(
+                          errors.yearLevel &&
+                            "border-destructive focus-visible:ring-destructive"
+                        )}
+                      >
                         <SelectValue placeholder="Select year level" />
                       </SelectTrigger>
                       <SelectContent>
@@ -372,6 +481,11 @@ const Register: React.FC = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.yearLevel && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {errors.yearLevel}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -385,8 +499,17 @@ const Register: React.FC = () => {
                     onChange={(e) =>
                       handleInputChange("password", e.target.value)
                     }
-                    required
+                    aria-invalid={!!errors.password}
+                    className={cn(
+                      errors.password &&
+                        "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {errors.password && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {errors.password}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -399,8 +522,17 @@ const Register: React.FC = () => {
                     onChange={(e) =>
                       handleInputChange("confirmPassword", e.target.value)
                     }
-                    required
+                    aria-invalid={!!errors.confirmPassword}
+                    className={cn(
+                      errors.confirmPassword &&
+                        "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {errors.confirmPassword && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {errors.confirmPassword}
+                    </p>
+                  )}
                 </div>
 
                 <Button

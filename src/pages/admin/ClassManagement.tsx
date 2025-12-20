@@ -184,7 +184,6 @@ const ClassManagement: React.FC = () => {
       const status = error?.response?.status;
       const message =
         error?.response?.data?.message || error?.message || "Unknown error";
-      console.error("Failed to load students:", { status, message, error });
       toast({
         title: "Unable to load students",
         description:
@@ -211,14 +210,6 @@ const ClassManagement: React.FC = () => {
     
     // Additional validation: Check if student is already enrolled in same subject in another class
     if (selectedClass) {
-      console.log("Checking student:", student.first_name, "for subject:", selectedClass.subject.name);
-      console.log("Student data:", {
-        studentId: student.id,
-        studentSubjects: student.subjects,
-        studentSubjectsLength: student.subjects?.length,
-        selectedClassStudents: selectedClass.students,
-        selectedClassStudentsLength: selectedClass.students?.length
-      });
       
       // Check multiple possible ways student might have subject data
       const isEnrolledInSameSubject = (
@@ -232,7 +223,6 @@ const ClassManagement: React.FC = () => {
         ))
       );
       
-      console.log("Is enrolled in same subject:", isEnrolledInSameSubject);
       
       if (isEnrolledInSameSubject) {
         toast({
@@ -266,18 +256,11 @@ const ClassManagement: React.FC = () => {
     try {
       setManageStudentsLoading(true);
 
-      console.log("Saving class students:", {
-        classId: selectedClass.id,
-        selectedStudentIds: selectedStudentIds,
-        classInfo: selectedClass,
-      });
-
       const result = await classApi.updateClass(selectedClass.id as number, {
         studentIds: selectedStudentIds,
         skipSectionStudents: true,
       });
 
-      console.log("Update class result:", result);
 
       toast({
         title: "Students Updated",
@@ -291,17 +274,10 @@ const ClassManagement: React.FC = () => {
       const status = error?.response?.status;
       const message =
         error?.response?.data?.message || error?.message || "Unknown error";
-      console.error("Failed to save class students:", {
-        status,
-        message,
-        error,
-      });
       toast({
         title: "Error",
         description:
-          status != null
-            ? `HTTP ${status}. ${message}`
-            : "There was a problem updating students for this class.",
+          status != null ? `HTTP ${status}. ${message}` : String(message),
         variant: "destructive",
       });
     } finally {
@@ -347,15 +323,15 @@ const ClassManagement: React.FC = () => {
         searchTerm,
         selectedDepartmentFilter !== "all" ? parseInt(selectedDepartmentFilter) : undefined,
         selectedYearLevelFilter !== "all" ? parseInt(selectedYearLevelFilter) : undefined,
-        subjectFilter?.id, // Use subject filter if available
-        teacherFilter?.id // Use teacher filter if available
+        subjectFilter?.id, 
+        teacherFilter?.id 
       );
 
       setClasses(res.data || []);
       setClassesPage(res.current_page);
       setClassesLastPage(res.last_page);
       setClassesTotal(res.total);
-      setInitialLoading(false); // Set initial loading to false when data is loaded
+      setInitialLoading(false); 
     } catch (error) {
       toast({
         title: "Error loading classes",
@@ -363,7 +339,7 @@ const ClassManagement: React.FC = () => {
           "There was a problem fetching classes from the server. Please try again.",
         variant: "destructive",
       });
-      setInitialLoading(false); // Also set to false on error
+      setInitialLoading(false); 
     } finally {
       setLoading(false);
     }
@@ -371,22 +347,16 @@ const ClassManagement: React.FC = () => {
 
   useEffect(() => {
     fetchMetadata();
-    // Don't fetch classes by default - wait for user to select filters
-    // Only fetch if there's a subject or teacher filter from navigation
     if (location.state?.subjectFilter || location.state?.teacherFilter) {
-      // If there's a filter, set initial loading to false after metadata loads
       setInitialLoading(false);
     } else {
-      // No filters selected, set initial loading to false
       setInitialLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Trigger fetchClasses when filters change
   useEffect(() => {
     setClassesPage(1); // Reset to page 1 when filters change
-    // Only fetch if filters are selected (not "all") or if there's a subject/teacher filter
     if (selectedDepartmentFilter !== "all" || selectedYearLevelFilter !== "all" || subjectFilter || teacherFilter) {
       fetchClasses(1);
     } else {
@@ -460,8 +430,6 @@ const ClassManagement: React.FC = () => {
   };
 
   const handleEditClass = (cls: ClassModel) => {
-    console.log('Editing class data:', cls);
-    console.log('Class schedules:', cls.schedules);
     
     setEditingClassId(cls.id as number);
     setForm({
@@ -478,22 +446,6 @@ const ClassManagement: React.FC = () => {
               room: s.room || "",
             }))
           : [{ day_of_week: "", start_time: "", end_time: "", room: "" }],
-    });
-    
-    console.log('Form set to:', {
-      subject_id: String(cls.subject.id),
-      department_id: cls.department_id ? String(cls.department_id) : "",
-      section_id: cls.section ? String(cls.section.id) : "",
-      teacher_id: String(cls.teacher.id),
-      schedules:
-        cls.schedules && cls.schedules.length > 0
-          ? cls.schedules.map((s) => ({
-              day: String(s.day_of_week),
-              timeStart: s.start_time || "",
-              timeEnd: s.end_time || "",
-              location: s.room || "",
-            }))
-          : [{ day: "", timeStart: "", timeEnd: "", location: "" }],
     });
     
     setIsClassDialogOpen(true);
@@ -1191,16 +1143,6 @@ const ClassManagement: React.FC = () => {
                       );
                     })
                     .map((s) => {
-                      // Debug: Check what properties the student actually has
-                      console.log("Student data for", s.first_name, ":", {
-                        id: s.id,
-                        subjects: s.subjects,
-                        subjectsLength: s.subjects?.length,
-                        selectedClass: selectedClass,
-                        selectedClassSubject: selectedClass?.subject,
-                        selectedClassStudents: selectedClass?.students
-                      });
-                      
                       // Check multiple possible ways student might have subject data
                       const isEnrolledInSameSubject = selectedClass && (
                         // Check if student has subjects array with matching subject
@@ -1213,7 +1155,6 @@ const ClassManagement: React.FC = () => {
                         ))
                       );
                       
-                      console.log("Is enrolled in same subject:", isEnrolledInSameSubject, "for student:", s.first_name);
                       
                       return (
                       <div

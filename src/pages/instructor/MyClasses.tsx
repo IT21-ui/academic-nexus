@@ -7,6 +7,7 @@ import api from '@/services/apiClient';
 import { Users, Clock, MapPin, FileSpreadsheet, ClipboardCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { CardSkeleton } from '@/components/ui/SkeletonLoader';
 
 const MyClasses: React.FC = () => {
   const navigate = useNavigate();
@@ -65,8 +66,10 @@ const MyClasses: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading classes...</div>
+      <div className="space-y-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <CardSkeleton key={index} />
+        ))}
       </div>
     );
   }

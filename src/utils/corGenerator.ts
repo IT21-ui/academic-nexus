@@ -49,9 +49,14 @@ export const generateCorPdf = async (data: RegistrationData) => {
     tuitionFee = 0.00,
     miscFee = 0.00,
   } = data;
-  
-  // Use provided dateEnrolled or fallback to current date
-  const enrollmentDate = dateEnrolled || new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+
+  const enrollmentDate =
+    dateEnrolled ||
+    new Date().toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+    });
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -89,7 +94,7 @@ export const generateCorPdf = async (data: RegistrationData) => {
     doc.addImage(logoDataUrl, 'PNG', logoX - logoSize/2, yPos - logoSize/2, logoSize, logoSize);
   } catch (error) {
     console.error('Failed to load logo, using placeholder:', error);
-    // Fallback: draw placeholder circle if logo fails to load
+ 
     doc.setDrawColor(...maroonColor);
     doc.setLineWidth(0.5);
     doc.circle(logoX, yPos, 12);
@@ -126,7 +131,7 @@ export const generateCorPdf = async (data: RegistrationData) => {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
 
-  const studentId = `ST${user?.id?.toString().padStart(8, '0') || '00000000'}`;
+  const studentId = user?.formatted_id || user?.id?.toString().padStart(8, '0') || '00000000';
   const studentName = `${user?.last_name || ''}, ${user?.first_name || ''}`;
 
   // Left side - Student ID and Name

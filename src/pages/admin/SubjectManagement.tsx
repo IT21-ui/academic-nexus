@@ -56,6 +56,7 @@ import userApi from "@/services/userApi";
 import type { Subject, Department, Section, User } from "@/types/models";
 import { yearLevels } from "@/lib/contants";
 import { max } from "date-fns";
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 const days = [
   "Monday",
@@ -129,7 +130,6 @@ const SubjectManagement: React.FC = () => {
     return matchesDepartment && matchesYearLevel;
   });
 
-  // Categorize subjects by department and year level
   const categorizedSubjects = filteredSubjects.reduce((acc, subject) => {
     const deptName = subject.department?.name || 'Uncategorized';
     const yearLevel = subject.year_level ? `Year ${subject.year_level}` : 'All Years';
@@ -162,7 +162,6 @@ const SubjectManagement: React.FC = () => {
           setStudents(studentsRes.data);
         }
 
-        // Only fetch subjects if filters are not "all"
         if (selectedDepartmentFilter !== "all" || selectedYearLevelFilter !== "all") {
           const subjectsRes = await subjectApi.getSubjects(
             1, 
@@ -173,7 +172,6 @@ const SubjectManagement: React.FC = () => {
           );
           setSubjects(subjectsRes.data);
         } else {
-          // Don't fetch all subjects by default - wait for user to select filters
           setSubjects([]);
         }
       } catch (error) {
@@ -195,9 +193,7 @@ const SubjectManagement: React.FC = () => {
     try {
       setSectionsLoading(true);
 
-      // Don't fetch sections if both filters are "all" - show guidance message instead
       if (selectedSectionDepartmentFilter === "all" && selectedSectionYearLevelFilter === "all") {
-        console.log('Sections: Both filters are "all", skipping fetch');
         setSections([]);
         setSectionsPage(1);
         setSectionsLastPage(1);
@@ -206,9 +202,7 @@ const SubjectManagement: React.FC = () => {
         return;
       }
 
-      console.log('Sections: Fetching with filters:', selectedSectionDepartmentFilter, selectedSectionYearLevelFilter);
       
-      // Use server-side filtering by passing parameters to the API
       const res = await sectionApi.getSections(
         page, 
         10, 
@@ -222,7 +216,6 @@ const SubjectManagement: React.FC = () => {
       setSectionsLastPage(res.last_page);
       setSectionsTotal(res.total);
     } catch (error) {
-      console.error('Sections API error:', error);
       toast({
         title: "Error loading sections",
         description:
@@ -239,7 +232,6 @@ const SubjectManagement: React.FC = () => {
     fetchSections(1);
   }, [toast, selectedSectionDepartmentFilter, selectedSectionYearLevelFilter]);
 
-  // Keep the section shown in the Manage Subjects modal in sync
   useEffect(() => {
     if (!selectedSubjectsSection) return;
     const latest = sections.find((s) => s.id === selectedSubjectsSection.id);
@@ -248,7 +240,6 @@ const SubjectManagement: React.FC = () => {
     }
   }, [sections, selectedSubjectsSection]);
 
-  // Keep the section shown in the Manage Students modal in sync
   useEffect(() => {
     if (!selectedSection) return;
     const latest = sections.find((s) => s.id === selectedSection.id);
@@ -270,8 +261,8 @@ const SubjectManagement: React.FC = () => {
     const departmentId = Number(newSubject.department);
     if (!departmentId) {
       toast({
-        title: "Department required",
-        description: "Please select a valid department.",
+        title: "Program required",
+        description: "Please select a valid program.",
         variant: "destructive",
       });
       return;
@@ -296,11 +287,9 @@ const SubjectManagement: React.FC = () => {
           description: `${newSubject.name} has been updated successfully.`,
         });
 
-        // Refresh subjects list
         const refreshed = await subjectApi.getSubjects(1, 100);
         setSubjects(refreshed.data);
       } else {
-        // Optimistic update - add subject to local state immediately
         optimisticId = Date.now(); // Store the ID for rollback
         const optimisticSubject: Subject = {
           id: optimisticId, // Temporary ID
@@ -332,8 +321,6 @@ const SubjectManagement: React.FC = () => {
           description: `${newSubject.name} has been added successfully.`,
         });
 
-        // Refresh subjects list to get the real subject with correct ID
-        // Only do this if we need to update the optimistic subject with real data
         const refreshed = await subjectApi.getSubjects(1, 100);
         setSubjects(refreshed.data);
       }
@@ -348,7 +335,6 @@ const SubjectManagement: React.FC = () => {
       setEditingSubjectId(null);
       setIsAddSubjectOpen(false);
     } catch (error: any) {
-      // If API call fails, remove the optimistic subject
       if (!editingSubjectId && optimisticId !== null) {
         setSubjects(prev => prev.filter(s => s.id !== optimisticId));
       }
@@ -370,7 +356,6 @@ const SubjectManagement: React.FC = () => {
       setManageStudentsLoading(true);
       await sectionApi.addStudent(sectionId, student.id);
 
-      // Optimistically update local sections list
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
@@ -382,7 +367,6 @@ const SubjectManagement: React.FC = () => {
         )
       );
 
-      // And the section shown inside the modal
       setSelectedSection((prev) =>
         prev && prev.id === sectionId
           ? {
@@ -418,7 +402,6 @@ const SubjectManagement: React.FC = () => {
       setManageStudentsLoading(true);
       await sectionApi.removeStudent(sectionId, studentId);
 
-      // Optimistically update local sections list
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
@@ -432,7 +415,6 @@ const SubjectManagement: React.FC = () => {
         )
       );
 
-      // And the section shown inside the modal
       setSelectedSection((prev) =>
         prev && prev.id === sectionId
           ? {
@@ -485,7 +467,6 @@ const SubjectManagement: React.FC = () => {
   const confirmDeleteSubject = async () => {
     if (!subjectToDelete) return;
 
-    // Optimistic update - remove subject from local state immediately
     const previousSubjects = [...subjects];
     setSubjects(prev => prev.filter(s => s.id !== subjectToDelete.id));
 
@@ -500,7 +481,6 @@ const SubjectManagement: React.FC = () => {
       setIsDeleteSubjectOpen(false);
       setSubjectToDelete(null);
     } catch (error) {
-      // Rollback - restore the subject if API call fails
       setSubjects(previousSubjects);
       
       toast({
@@ -516,7 +496,6 @@ const SubjectManagement: React.FC = () => {
   };
 
   const handleViewClasses = (subject: Subject) => {
-    // Navigate to ClassManagement with subject filter
     navigate('/class-management', { 
       state: { 
         subjectFilter: {
@@ -561,7 +540,6 @@ const SubjectManagement: React.FC = () => {
       setManageSubjectsLoading(true);
       await sectionApi.addSubject(sectionId, subject.id);
 
-      // Optimistically update local sections list
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
@@ -573,7 +551,6 @@ const SubjectManagement: React.FC = () => {
         )
       );
 
-      // And the section shown inside the modal
       setSelectedSubjectsSection((prev) =>
         prev && prev.id === sectionId
           ? {
@@ -609,7 +586,6 @@ const SubjectManagement: React.FC = () => {
       setManageSubjectsLoading(true);
       await sectionApi.removeSubject(sectionId, subjectId);
 
-      // Optimistically update local sections list
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
@@ -623,7 +599,6 @@ const SubjectManagement: React.FC = () => {
         )
       );
 
-      // And the section shown inside the modal
       setSelectedSubjectsSection((prev) =>
         prev && prev.id === sectionId
           ? {
@@ -713,7 +688,7 @@ const SubjectManagement: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Department</Label>
+                <Label>Program</Label>
                 <Select
                   value={newSubject.department}
                   onValueChange={(v) =>
@@ -721,7 +696,7 @@ const SubjectManagement: React.FC = () => {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder="Select program" />
                   </SelectTrigger>
                   <SelectContent>
                     {departments.map((dept) => (
@@ -798,16 +773,16 @@ const SubjectManagement: React.FC = () => {
               
               <div className="flex flex-row items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">Department:</Label>
+                  <Label className="text-sm font-medium">Program:</Label>
                   <Select
                     value={selectedDepartmentFilter}
                     onValueChange={setSelectedDepartmentFilter}
                   >
                     <SelectTrigger className="w-48">
-                      <SelectValue placeholder="All departments" />
+                      <SelectValue placeholder="All programs" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Departments</SelectItem>
+                      <SelectItem value="all">All Programs</SelectItem>
                       {departments.map((dept) => (
                         <SelectItem key={dept.id} value={String(dept.id)}>
                           {dept.name}
@@ -853,14 +828,12 @@ const SubjectManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-muted-foreground">Loading subjects...</div>
-                </div>
+                <TableSkeleton />
               ) : Object.keys(categorizedSubjects).length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   {selectedDepartmentFilter === "all" && selectedYearLevelFilter === "all" ? (
                     <div className="space-y-2">
-                      <p>Please select department and/or year level filters to view subjects.</p>
+                      <p>Please select program and/or year level filters to view subjects.</p>
                       <p className="text-sm">This helps improve performance by loading only the subjects you need.</p>
                     </div>
                   ) : (
@@ -955,16 +928,16 @@ const SubjectManagement: React.FC = () => {
               
               <div className="flex flex-row items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">Department:</Label>
+                  <Label className="text-sm font-medium">Program:</Label>
                   <Select
                     value={selectedSectionDepartmentFilter}
                     onValueChange={setSelectedSectionDepartmentFilter}
                   >
                     <SelectTrigger className="w-48">
-                      <SelectValue placeholder="All departments" />
+                      <SelectValue placeholder="All programs" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Departments</SelectItem>
+                      <SelectItem value="all">All Programs</SelectItem>
                       {departments.map((dept) => (
                         <SelectItem key={dept.id} value={String(dept.id)}>
                           {dept.name}
@@ -1018,7 +991,7 @@ const SubjectManagement: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Section</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead>Program</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead>Students</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -1033,7 +1006,7 @@ const SubjectManagement: React.FC = () => {
                       >
                         {selectedSectionDepartmentFilter === "all" && selectedSectionYearLevelFilter === "all" ? (
                           <div className="space-y-2">
-                            <p>Please select department and/or year level filters to view sections.</p>
+                            <p>Please select program and/or year level filters to view sections.</p>
                             <p className="text-sm">This helps improve performance by loading only the sections you need.</p>
                           </div>
                         ) : (
@@ -1199,7 +1172,7 @@ const SubjectManagement: React.FC = () => {
                     })
                     .map((student) => (
                       <SelectItem key={student.id} value={String(student.id)}>
-                        {student.id} - {student.first_name} {student.last_name}
+                        {student.formatted_id || student.id} - {student.first_name} {student.last_name}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -1224,7 +1197,7 @@ const SubjectManagement: React.FC = () => {
                     return (
                       <TableRow key={student.id}>
                         <TableCell>
-                          <Badge variant="secondary">{student.id}</Badge>
+                          <Badge variant="secondary">{student.formatted_id || student.id}</Badge>
                         </TableCell>
                         <TableCell className="font-medium">
                           {student?.first_name} {student?.last_name}

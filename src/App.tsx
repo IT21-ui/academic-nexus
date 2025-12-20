@@ -15,14 +15,15 @@ import Attendance from "./pages/student/Attendance";
 import MyClasses from "./pages/instructor/MyClasses";
 import GradeEntry from "./pages/instructor/GradeEntry";
 import AttendanceEntry from "./pages/instructor/AttendanceEntry";
+import InstructorSchedule from "./pages/instructor/InstructorSchedule";
 import UserManagement from "./pages/admin/UserManagement";
 import SubjectManagement from "./pages/admin/SubjectManagement";
 import TeacherManagement from "./pages/admin/TeacherManagement";
-import DepartmentManagement from "./pages/admin/DepartmentManagement";
+import ProgramManagement from "./pages/admin/ProgramManagement";
 import NotFound from "./pages/NotFound";
 import CorValidation from "./pages/validation/CorValidation";
 
-import Schedule from "./pages/student/Schedule";
+import Schedule from "./pages/Schedule";
 import ClassManagement from "./pages/admin/ClassManagement";
 import Settings from "./pages/admin/Settings";
 
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/my-classes" element={<MyClasses />} />
               <Route path="/grade-entry" element={<GradeEntry />} />
               <Route path="/attendance-entry" element={<AttendanceEntry />} />
+              <Route path="/instructorschedule" element={<InstructorSchedule />} />
 
               {/* Admin Routes */}
               <Route path="/users" element={<UserManagement />} />
@@ -62,7 +64,7 @@ const App = () => (
                 element={<SubjectManagement />}
               />
               <Route path="/teachers" element={<TeacherManagement />} />
-              <Route path="/departments" element={<DepartmentManagement />} />
+              <Route path="/programs" element={<ProgramManagement />} />
               <Route path="/class-management" element={<ClassManagement />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

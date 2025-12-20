@@ -57,6 +57,7 @@ import departmentApi from "@/services/departmentApi";
 import sectionApi from "@/services/sectionApi";
 import classApi from "@/services/classApi";
 import { yearLevels } from "@/lib/contants";
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 const UserManagement: React.FC = () => {
   const { toast } = useToast();
@@ -68,7 +69,7 @@ const UserManagement: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isSubjectsDialogOpen, setIsSubjectsDialogOpen] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<EnhancedUser | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [studentsPage, setStudentsPage] = useState(1);
@@ -99,18 +100,15 @@ const UserManagement: React.FC = () => {
     year_level: "",
   });
 
-  // Enhanced subject interface with sections count
   interface EnhancedSubject extends Subject {
     sectionsCount: number;
     classes: any[];
   }
 
-  // Enhanced user interface with proper subjects typing
   interface EnhancedUser extends User {
     subjects?: EnhancedSubject[];
   }
 
-  // Use cached queries
   const { data: usersData, isLoading: usersLoading } = useUsers(
     currentPage,
     10,
@@ -130,31 +128,27 @@ const UserManagement: React.FC = () => {
   const { data: registrationRequestsData, isLoading: pendingLoading } =
     useRegistrationRequests("pending", pendingPage, 10);
 
-  // Mutations
-  const createUserMutation = useCreateUser();
+    const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
   const approveRequestMutation = useApproveRegistrationRequest();
   const rejectRequestMutation = useRejectRegistrationRequest();
 
-  // Load departments and sections (these don't change frequently)
   useEffect(() => {
     const loadDepartmentsAndSections = async () => {
       try {
         const [departmentsRes, sectionsRes] = await Promise.all([
           departmentApi.getDepartments(),
-          sectionApi.getSections(1, 1000), // Load more sections to ensure we get all
+          sectionApi.getSections(1, 1000),
         ]);
         setDepartments(departmentsRes.data);
         setSections(sectionsRes.data);
       } catch (error) {
-        console.error("Error loading departments/sections:", error);
       }
     };
     loadDepartmentsAndSections();
   }, []);
 
-  // Load sections when department changes for student role
   useEffect(() => {
     if (newUser.role === "student" && selectedDepartmentId && newUser.year_level) {
       const loadSectionsForDepartment = async () => {
@@ -168,14 +162,12 @@ const UserManagement: React.FC = () => {
           );
           setSections(sectionsRes.data);
         } catch (error) {
-          console.error("Error loading sections for department:", error);
         }
       };
       loadSectionsForDepartment();
     }
   }, [selectedDepartmentId, newUser.year_level, newUser.role]);
 
-  // Update data states when cached data changes
   useEffect(() => {
     if (studentsData) {
       setStudents(studentsData.data);
@@ -201,7 +193,6 @@ const UserManagement: React.FC = () => {
   }, [registrationRequestsData]);
 
   useEffect(() => {
-    // Reset department/section when role changes
     setSelectedDepartmentId("");
     setSelectedSectionId("");
   }, [newUser.role]);
@@ -245,7 +236,6 @@ const UserManagement: React.FC = () => {
       
       setIsEditDialogOpen(false);
     } catch (error) {
-      console.error("Error updating user:", error);
       toast({
         title: "Error updating user",
         description: "There was a problem updating the user. Please try again.",
@@ -274,7 +264,32 @@ const UserManagement: React.FC = () => {
   };
 
   const handleSubjectsClick = (teacher: User) => {
-    setSelectedTeacher(teacher);
+    const teachingClasses = (teacher as any).teaching_classes || [];
+
+    const subjectsMap: Record<number, EnhancedSubject> = {};
+
+    teachingClasses.forEach((cls: any) => {
+      const subject = cls.subject;
+      if (!subject || subject.id == null) return;
+
+      if (!subjectsMap[subject.id]) {
+        subjectsMap[subject.id] = {
+          ...(subject as Subject),
+          sectionsCount: 0,
+          classes: [],
+        };
+      }
+
+      subjectsMap[subject.id].classes.push(cls);
+      subjectsMap[subject.id].sectionsCount = subjectsMap[subject.id].classes.length;
+    });
+
+    const enhancedTeacher: EnhancedUser = {
+      ...(teacher as User),
+      subjects: Object.values(subjectsMap),
+    };
+
+    setSelectedTeacher(enhancedTeacher);
     setIsSubjectsDialogOpen(true);
   };
 
@@ -295,8 +310,8 @@ const UserManagement: React.FC = () => {
 
     if (newUser.role !== "admin" && !selectedDepartmentId) {
       toast({
-        title: "Department required",
-        description: "Please select a department for this user.",
+        title: "Program required",
+        description: "Please select a program for this user.",
         variant: "destructive",
       });
       return;
@@ -353,7 +368,6 @@ const UserManagement: React.FC = () => {
       setSelectedDepartmentId("");
       setSelectedSectionId("");
     } catch (error) {
-      console.error("Error creating user:", error);
       toast({
         title: "Error creating user",
         description: "There was a problem creating the user. Please try again.",
@@ -373,7 +387,6 @@ const UserManagement: React.FC = () => {
         description: "User has been approved successfully.",
       });
     } catch (error) {
-      console.error("Error approving user:", error);
       toast({
         title: "Error approving user",
         description: "There was a problem approving the user. Please try again.",
@@ -384,14 +397,13 @@ const UserManagement: React.FC = () => {
 
   const handleDeny = async (id: number) => {
     try {
-      await rejectRequestMutation.mutateAsync({ id });
+      await rejectRequestMutation.mutateAsync({ id, reason: undefined });
 
       toast({
         title: "User Denied",
         description: "User has been denied successfully.",
       });
     } catch (error) {
-      console.error("Error denying user:", error);
       toast({
         title: "Error denying user",
         description: "There was a problem denying the user. Please try again.",
@@ -416,7 +428,6 @@ const UserManagement: React.FC = () => {
         description: `${userToDelete.first_name} ${userToDelete.last_name} has been deleted.`,
       });
     } catch (error) {
-      console.error("Error deleting user:", error);
       toast({
         title: "Error deleting user",
         description: "There was a problem deleting this user. Please try again.",
@@ -517,13 +528,13 @@ const UserManagement: React.FC = () => {
 
                 {newUser.role !== "admin" && (
                   <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
+                    <Label htmlFor="department">Program</Label>
                     <Select
                       value={selectedDepartmentId}
                       onValueChange={(value) => setSelectedDepartmentId(value)}
                     >
                       <SelectTrigger id="department">
-                        <SelectValue placeholder="Select department" />
+                        <SelectValue placeholder="Select program" />
                       </SelectTrigger>
                       <SelectContent>
                         {departments.map((dept) => (
@@ -571,7 +582,7 @@ const UserManagement: React.FC = () => {
                         <SelectValue
                           placeholder={
                             !selectedDepartmentId || !newUser.year_level
-                              ? "Select department and year level first"
+                              ? "Select program and year level first"
                               : "Select section"
                           }
                         />
@@ -579,11 +590,11 @@ const UserManagement: React.FC = () => {
                       <SelectContent>
                         {sections
                           .filter((section) => {
-                            // If we have department and year level filters applied, sections are already filtered
+                            
                             if (selectedDepartmentId && newUser.year_level) {
-                              return true; // Sections are already filtered by server
+                              return true; 
                             }
-                            // Fallback to client-side filtering for initial load
+                            
                             return (
                               section.department_id === Number(selectedDepartmentId) &&
                               section.year_level === Number(newUser.year_level)
@@ -651,9 +662,7 @@ const UserManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               {loading && (
-                <p className="text-sm text-muted-foreground mb-2">
-                  Loading pending requests...
-                </p>
+                <TableSkeleton />
               )}
 
               <div className="space-y-4">
@@ -691,18 +700,28 @@ const UserManagement: React.FC = () => {
                         size="sm"
                         variant="success"
                         onClick={() => handleApprove(user.id)}
+                        disabled={approveRequestMutation.isPending}
                       >
-                        <Check className="w-4 h-4 mr-1" />
-                        Approve
+                        {approveRequestMutation.isPending ? (
+                          <div className="w-4 h-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Check className="w-4 h-4 mr-1" />
+                        )}
+                        {approveRequestMutation.isPending ? "Approving..." : "Approve"}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-destructive hover:text-destructive"
                         onClick={() => handleDeny(user.id)}
+                        disabled={rejectRequestMutation.isPending}
                       >
-                        <X className="w-4 h-4 mr-1" />
-                        Deny
+                        {rejectRequestMutation.isPending ? (
+                          <div className="w-4 h-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <X className="w-4 h-4 mr-1" />
+                        )}
+                        {rejectRequestMutation.isPending ? "Denying..." : "Deny"}
                       </Button>
                     </div>
                   </div>
@@ -755,9 +774,7 @@ const UserManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               {loading && (
-                <p className="text-sm text-muted-foreground mb-2">
-                  Loading students...
-                </p>
+                <TableSkeleton />
               )}
 
               <Table>
@@ -766,7 +783,7 @@ const UserManagement: React.FC = () => {
                     <TableHead>Student ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead>Program</TableHead>
                     <TableHead>Year Level</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -799,7 +816,7 @@ const UserManagement: React.FC = () => {
                     return filtered.map((student) => (
                       <TableRow key={student.id}>
                         <TableCell className="font-medium">
-                          {student.id}
+                          {student.formatted_id || student.id}
                         </TableCell>
                         <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
                         <TableCell>{student.email}</TableCell>
@@ -870,13 +887,17 @@ const UserManagement: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
+              {teachersLoading && (
+                <TableSkeleton />
+              )}
+
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Instructor ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead>Programs</TableHead>
                     <TableHead>Subjects</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -896,7 +917,7 @@ const UserManagement: React.FC = () => {
                   {teachers.map((instructor) => (
                     <TableRow key={instructor.id}>
                       <TableCell className="font-medium">
-                        {instructor.id}
+                        {instructor.formatted_id || instructor.id}
                       </TableCell>
                       <TableCell>{`${instructor.first_name} ${instructor.last_name}`}</TableCell>
                       <TableCell>{instructor.email}</TableCell>
@@ -907,7 +928,15 @@ const UserManagement: React.FC = () => {
                           className="p-0 h-auto font-normal text-primary hover:underline"
                           onClick={() => handleSubjectsClick(instructor)}
                         >
-                          {instructor.subjects ? instructor.subjects.length : 0}
+                          {(() => {
+                            const classes = instructor.teaching_classes || [];
+                            const subjectIds = new Set(
+                              classes
+                                .map((c: any) => c.subject?.id)
+                                .filter((id: any) => id != null)
+                            );
+                            return subjectIds.size;
+                          })()}
                         </Button>
                       </TableCell>
                       <TableCell className="text-right">
@@ -1019,7 +1048,7 @@ const UserManagement: React.FC = () => {
             {editingUser?.role !== 'admin' && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-department" className="text-right">
-                  Department
+                  Program
                 </Label>
                 <Select
                   value={selectedDepartmentId}
@@ -1028,13 +1057,13 @@ const UserManagement: React.FC = () => {
                     setEditingUser(prev => prev ? { 
                       ...prev, 
                       department_id: Number(value),
-                      section_id: undefined // Reset section when department changes
+                      section_id: undefined 
                     } : null);
                     setSelectedSectionId('');
                   }}
                 >
                   <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder="Select program" />
                   </SelectTrigger>
                   <SelectContent>
                     {departments.map((dept) => (

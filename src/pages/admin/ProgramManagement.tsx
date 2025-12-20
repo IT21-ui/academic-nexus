@@ -32,8 +32,9 @@ import { useToast } from "@/hooks/use-toast";
 import departmentApi from "@/services/departmentApi";
 import userApi from "@/services/userApi";
 import type { Department, User } from "@/types/models";
+import { CardSkeleton } from '@/components/ui/SkeletonLoader';
 
-const DepartmentManagement: React.FC = () => {
+const ProgramManagement: React.FC = () => {
   const { toast } = useToast();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
@@ -54,7 +55,6 @@ const DepartmentManagement: React.FC = () => {
     null
   );
 
-  // Find department head name
   const getDepartmentHeadName = (dept: Department) => {
     if (dept.head) {
       return `${dept.head.first_name} ${dept.head.last_name}`;
@@ -70,7 +70,7 @@ const DepartmentManagement: React.FC = () => {
 
   const handleDeleteDepartment = async (dept: Department) => {
     const confirmed = window.confirm(
-      `Are you sure you want to delete department ${dept.code} - ${dept.name}?`
+      `Are you sure you want to delete program ${dept.code} - ${dept.name}?`
     );
     if (!confirmed) return;
 
@@ -78,11 +78,10 @@ const DepartmentManagement: React.FC = () => {
       setIsSubmitting(true);
       await departmentApi.deleteDepartment(dept.id);
       toast({
-        title: "Department deleted",
+        title: "Program deleted",
         description: `${dept.name} has been deleted successfully.`,
       });
 
-      // Refresh departments, staying on the same page if possible
       const nextPage =
         departments.length === 1 && currentPage > 1
           ? currentPage - 1
@@ -90,9 +89,9 @@ const DepartmentManagement: React.FC = () => {
       fetchDepartments(nextPage);
     } catch (error) {
       toast({
-        title: "Error deleting department",
+        title: "Error deleting program",
         description:
-          "There was a problem deleting this department. Please try again.",
+          "There was a problem deleting this program. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -121,9 +120,9 @@ const DepartmentManagement: React.FC = () => {
       setTotal(response.total);
     } catch (error) {
       toast({
-        title: "Error loading departments",
+        title: "Error loading programs",
         description:
-          "There was a problem fetching departments. Please try again.",
+          "There was a problem fetching programs. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -138,7 +137,6 @@ const DepartmentManagement: React.FC = () => {
         setTeachers(response.data);
       }
     } catch (error) {
-      console.error("Failed to fetch teachers:", error);
     }
   };
 
@@ -151,7 +149,7 @@ const DepartmentManagement: React.FC = () => {
     if (!newDept.name || !newDept.code) {
       toast({
         title: "Missing information",
-        description: "Please provide both department name and code.",
+        description: "Please provide both program name and code.",
         variant: "destructive",
       });
       return;
@@ -176,7 +174,7 @@ const DepartmentManagement: React.FC = () => {
           newDept.name;
 
         toast({
-          title: "Department updated",
+          title: "Program updated",
           description: `${updatedName} has been updated successfully.`,
         });
       } else {
@@ -187,14 +185,13 @@ const DepartmentManagement: React.FC = () => {
           head_id: newDept.head_id ? Number(newDept.head_id) : null,
         });
 
-        // If the request did not throw, assume success (backend may not wrap in ApiResponse)
         const createdName =
           (response as any)?.data?.name ||
           (response as any)?.name ||
           newDept.name;
 
         toast({
-          title: "Department created",
+          title: "Program created",
           description: `${createdName} has been created successfully.`,
         });
       }
@@ -206,10 +203,10 @@ const DepartmentManagement: React.FC = () => {
     } catch (error) {
       toast({
         title: editingDepartmentId
-          ? "Error updating department"
-          : "Error creating department",
+          ? "Error updating program"
+          : "Error creating program",
         description:
-          "There was a problem saving the department. Please try again.",
+          "There was a problem saving the program. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -222,25 +219,25 @@ const DepartmentManagement: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            Department Management
+            Program Management
           </h1>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" onClick={handleOpenCreate}>
               <Plus className="w-4 h-4" />
-              Add Department
+              Add Program
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {editingDepartmentId ? "Edit Department" : "Add Department"}
+                {editingDepartmentId ? "Edit Program" : "Add Program"}
               </DialogTitle>
               <DialogDescription>
                 {editingDepartmentId
-                  ? "Update the details of this academic department."
-                  : "Create a new academic department."}
+                  ? "Update the details of this academic program."
+                  : "Create a new academic program."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -272,7 +269,7 @@ const DepartmentManagement: React.FC = () => {
                 <Label htmlFor="dept-description">Description (optional)</Label>
                 <Input
                   id="dept-description"
-                  placeholder="Short description of the department"
+                  placeholder="Short description of the program"
                   value={newDept.description}
                   onChange={(e) =>
                     setNewDept({ ...newDept, description: e.target.value })
@@ -280,7 +277,7 @@ const DepartmentManagement: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dept-head">Department Head</Label>
+                <Label htmlFor="dept-head">Program Head</Label>
                 <Select
                   value={newDept.head_id}
                   onValueChange={(value) =>
@@ -288,12 +285,12 @@ const DepartmentManagement: React.FC = () => {
                   }
                 >
                   <SelectTrigger id="dept-head">
-                    <SelectValue placeholder="Select department head (optional)" />
+                    <SelectValue placeholder="Select program head (optional)" />
                   </SelectTrigger>
                   <SelectContent>
                     {teachers.map((teacher) => (
                       <SelectItem key={teacher.id} value={String(teacher.id)}>
-                        {teacher.first_name} {teacher.last_name}
+                        {teacher.formatted_id || teacher.id} - {teacher.first_name} {teacher.last_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -321,17 +318,25 @@ const DepartmentManagement: React.FC = () => {
                     ? "Updating..."
                     : "Creating..."
                   : editingDepartmentId
-                  ? "Update Department"
-                  : "Create Department"}
+                  ? "Update Program"
+                  : "Create Program"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
+      {loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <CardSkeleton key={index} />
+          ))}
+        </div>
+      )}
+
       {!loading && departments.length === 0 && (
         <div className="border rounded-lg p-8 text-center text-muted-foreground">
-          No departments found. Use the "Add Department" button to create one.
+          No programs found. Use the "Add Program" button to create one.
         </div>
       )}
 
@@ -370,7 +375,7 @@ const DepartmentManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Department Head:{" "}
+                Program Head:{" "}
                 <span className="text-foreground font-medium">
                   {getDepartmentHeadName(dept)}
                 </span>
@@ -435,4 +440,4 @@ const DepartmentManagement: React.FC = () => {
   );
 };
 
-export default DepartmentManagement;
+export default ProgramManagement;

@@ -50,15 +50,15 @@ const instructorLinks = [
   { to: "/my-classes", icon: BookOpen, label: "My Classes" },
   { to: "/grade-entry", icon: FileSpreadsheet, label: "Grade Entry" },
   { to: "/attendance-entry", icon: ClipboardCheck, label: "Attendance" },
-  { to: "/schedule", icon: Calendar, label: "Schedule" },
+  { to: "/instructorschedule", icon: Calendar, label: "Schedule" },
 ];
 
 const adminLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/programs", icon: Building, label: "Programs" },
   { to: "/users", icon: Users, label: "User Management" },
   { to: "/subject-management", icon: BookOpen, label: "Subjects" },
   { to: "/teachers", icon: GraduationCap, label: "Teachers" },
-  { to: "/departments", icon: Building, label: "Departments" },
   { to: "/class-management", icon: Calendar, label: "Class Management" },
 ];
 

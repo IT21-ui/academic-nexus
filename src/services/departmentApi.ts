@@ -6,7 +6,7 @@ import type {
 } from "@/types/models";
 
 export const departmentApi = {
-  // Get all departments (paginated)
+
   async getDepartments(
     page: number = 1,
     perPage: number = 15,

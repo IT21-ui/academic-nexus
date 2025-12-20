@@ -17,6 +17,14 @@ const Schedule: React.FC = () => {
     const fetchSchedule = async () => {
       if (!user?.id) return;
 
+      console.log('Instructor Schedule - User:', {
+        id: user.id,
+        formatted_id: user.formatted_id,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name
+      });
+
       try {
         setLoading(true);
         setError(null);
@@ -28,6 +36,7 @@ const Schedule: React.FC = () => {
         console.log('Instructor Schedule API Response:', res);
         console.log('Response data:', res.data);
         console.log('Is data array?', Array.isArray(res.data));
+        console.log('Data length:', res.data?.length);
 
         // Handle ApiResponse structure
         const classesData = Array.isArray(res.data)
@@ -37,6 +46,13 @@ const Schedule: React.FC = () => {
           : [];
 
         console.log('Final classes data:', classesData);
+        console.log('Classes with schedules:', classesData.map(c => ({
+          id: c.id,
+          subject: c.subject?.name,
+          hasSchedules: !!c.schedules,
+          scheduleCount: c.schedules?.length || 0
+        })));
+        
         setSchedule(classesData);
       } catch (error: any) {
         console.error("Failed to fetch schedule:", error);

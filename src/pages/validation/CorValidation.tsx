@@ -15,6 +15,7 @@ interface ValidationData {
   status: 'ENROLLED' | 'NOT ENROLLED' | 'INVALID';
   program?: string;
   academicYear?: string;
+  yearLevel?: number;
 }
 
 const CorValidation: React.FC = () => {
@@ -63,95 +64,56 @@ const CorValidation: React.FC = () => {
           } catch (apiError) {
             console.error('API validation error:', apiError);
             console.log('Using fallback validation data for codeParam:', codeParam, 'studentParam:', studentParam);
-            // Extract numeric ID from ST format for backend calls
-            const numericId = studentParam.startsWith('ST') ? studentParam.replace('ST', '') : studentParam;
-            // Fallback: Try to fetch student data from backend
+            // Fallback: fetch real student by formatted_id
             try {
-              const studentResponse = await api.get(`/api/students/${numericId}`);
-              const student = studentResponse.data;
-              
-              if (student) {
-                const validationData: ValidationData = {
-                  studentId: student.id,
-                  studentName: `${student.first_name} ${student.last_name}`,
-                  documentType: 'Certificate of Registration',
-                  validationCode: codeParam,
-                  issuedDate: new Date().toLocaleString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: 'numeric'
-                  }),
-                  status: 'ENROLLED',
-                  program: student.program || 'BSIT 2nd',
-                  academicYear: student.academic_year || '2025-2026 1st Term'
-                };
-                setValidationData(validationData);
-                generateQRCode(validationData);
-              } else {
-                setError('Student not found');
-              }
+              const studentRes = await api.get(`/api/students/by-formatted-id/${studentParam}`);
+              const student = studentRes.data;
+
+              const validationData: ValidationData = {
+                studentId: student.formatted_id,
+                studentName: `${student.first_name} ${student.last_name}`,
+                documentType: 'Certificate of Registration',
+                validationCode: codeParam,
+                issuedDate: new Date().toLocaleString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric',
+                }),
+                status: 'ENROLLED',
+                program: student.department?.name || 'BSIT 2nd',
+                academicYear: student.academic_year || '2025-2026 1st Term',
+                yearLevel: student.year_level,
+              };
+              setValidationData(validationData);
+              generateQRCode(validationData);
+              return;
             } catch (studentError) {
-              console.error('Student API error:', studentError);
-              // Extract numeric ID from ST format for backend calls
-                const numericId = studentParam.startsWith('ST') ? studentParam.replace('ST', '') : studentParam;
-                const displayStudentId = studentParam.startsWith('ST') ? studentParam : `ST${studentParam}`;
-                console.log('Fetching user data from users table for numeric ID:', numericId, 'display ID:', displayStudentId);
-                // Final fallback: Try to fetch user data from users table
-                try {
-                  const userResponse = await api.get(`/api/users/${numericId}`);
-                  const user = userResponse.data;
-                
-                if (user) {
-                  const userData: ValidationData = {
-                    studentId: displayStudentId,
-                    studentName: `${user.first_name} ${user.last_name}`,
-                    documentType: 'Certificate of Registration',
-                    validationCode: codeParam,
-                    issuedDate: new Date().toLocaleString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: 'numeric',
-                      minute: 'numeric'
-                    }),
-                    status: 'ENROLLED',
-                    program: user.program || 'BSIT 2nd',
-                    academicYear: user.academic_year || '2025-2026 1st Term'
-                  };
-                  setValidationData(userData);
-                  generateQRCode(userData);
-                } else {
-                  setError('User not found in users table');
-                }
-              } catch (userError) {
-                console.error('Users table API error:', userError);
-                console.log('Using ultimate fallback validation data for student:', displayStudentId);
-                // Ultimate fallback: Basic validation data when all APIs are not available
-                const ultimateFallbackData: ValidationData = {
-                  studentId: displayStudentId,
-                  studentName: 'Student Name', // Placeholder until backend is available
-                  documentType: 'Certificate of Registration',
-                  validationCode: codeParam,
-                  issuedDate: new Date().toLocaleString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: 'numeric'
-                  }),
-                  status: 'ENROLLED',
-                  program: 'BSIT 2nd',
-                  academicYear: '2025-2026 1st Term'
-                };
-                setValidationData(ultimateFallbackData);
-                generateQRCode(ultimateFallbackData);
-              }
+              console.error('Student by formatted_id API error:', studentError);
             }
+
+            // Ultimate fallback (only if everything failed)
+            const ultimateFallbackData: ValidationData = {
+              studentId: studentParam,
+              studentName: 'Student Name',
+              documentType: 'Certificate of Registration',
+              validationCode: codeParam,
+              issuedDate: new Date().toLocaleString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+              }),
+              status: 'ENROLLED',
+              program: 'BSIT 2nd',
+              academicYear: '2025-2026 1st Term',
+            };
+            setValidationData(ultimateFallbackData);
+            generateQRCode(ultimateFallbackData);
           }
         } else if (validationCode) {
           // Fallback for validation code in URL params
@@ -166,93 +128,59 @@ const CorValidation: React.FC = () => {
             }
           } catch (apiError) {
             console.error('API validation error:', apiError);
-            // Fallback: Try to fetch student data from backend using extracted student ID
-            const extractedId = validationCode.split('-')[1] || 'Unknown';
-            const numericId = extractedId.startsWith('ST') ? extractedId.replace('ST', '') : extractedId;
-            const displayStudentId = extractedId.startsWith('ST') ? extractedId : `ST${extractedId}`;
+            // Fallback: try to extract formatted_id from validation code and fetch real student
+            const parts = validationCode.split('-');
+            const possibleStudentId = parts.length >= 3 ? `${parts[1]}-${parts[2]}-${parts[3]}` : validationCode;
+
             try {
-              const studentResponse = await api.get(`/api/students/${numericId}`);
-              const student = studentResponse.data;
-              
-              if (student) {
-                const validationData: ValidationData = {
-                  studentId: displayStudentId,
-                  studentName: `${student.first_name} ${student.last_name}`,
-                  documentType: 'Certificate of Registration',
-                  validationCode: validationCode,
-                  issuedDate: new Date().toLocaleString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: 'numeric'
-                  }),
-                  status: 'ENROLLED',
-                  program: student.program || 'BSIT 2nd',
-                  academicYear: student.academic_year || '2025-2026 1st Term'
-                };
-                setValidationData(validationData);
-                generateQRCode(validationData);
-              } else {
-                setError('Student not found');
-              }
+              const studentRes = await api.get(`/api/students/by-formatted-id/${possibleStudentId}`);
+              const student = studentRes.data;
+
+              const validationData: ValidationData = {
+                studentId: student.formatted_id,
+                studentName: `${student.first_name} ${student.last_name}`,
+                documentType: 'Certificate of Registration',
+                validationCode: validationCode,
+                issuedDate: new Date().toLocaleString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric',
+                }),
+                status: 'ENROLLED',
+                program: student.department?.name || 'BSIT 2nd',
+                academicYear: student.academic_year || '2025-2026 1st Term',
+                yearLevel: student.year_level,
+              };
+              setValidationData(validationData);
+              generateQRCode(validationData);
+              return;
             } catch (studentError) {
-              console.error('Student API error:', studentError);
-              console.log('Fetching user data from users table for numeric ID:', numericId, 'display ID:', displayStudentId);
-              // Final fallback: Try to fetch user data from users table
-              try {
-                const userResponse = await api.get(`/api/users/${numericId}`);
-                const user = userResponse.data;
-                
-                if (user) {
-                  const userData: ValidationData = {
-                    studentId: displayStudentId,
-                    studentName: `${user.first_name} ${user.last_name}`,
-                    documentType: 'Certificate of Registration',
-                    validationCode: validationCode,
-                    issuedDate: new Date().toLocaleString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: 'numeric',
-                      minute: 'numeric'
-                    }),
-                    status: 'ENROLLED',
-                    program: user.program || 'BSIT 2nd',
-                    academicYear: user.academic_year || '2025-2026 1st Term'
-                  };
-                  setValidationData(userData);
-                  generateQRCode(userData);
-                } else {
-                  setError('User not found in users table');
-                }
-              } catch (userError) {
-                console.error('Users table API error:', userError);
-                console.log('Using ultimate fallback validation data for extracted student:', displayStudentId);
-                // Ultimate fallback: Basic validation data when all APIs are not available
-                const ultimateFallbackData: ValidationData = {
-                  studentId: displayStudentId,
-                  studentName: 'Student Name', // Placeholder until backend is available
-                  documentType: 'Certificate of Registration',
-                  validationCode: validationCode,
-                  issuedDate: new Date().toLocaleString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: 'numeric'
-                  }),
-                  status: 'ENROLLED',
-                  program: 'BSIT 2nd',
-                  academicYear: '2025-2026 1st Term'
-                };
-                setValidationData(ultimateFallbackData);
-                generateQRCode(ultimateFallbackData);
-              }
+              console.error('Student by formatted_id API error:', studentError);
             }
+
+            // Ultimate fallback (only if everything failed)
+            const ultimateFallbackData: ValidationData = {
+              studentId: possibleStudentId,
+              studentName: 'Student Name',
+              documentType: 'Certificate of Registration',
+              validationCode: validationCode,
+              issuedDate: new Date().toLocaleString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+              }),
+              status: 'ENROLLED',
+              program: 'BSIT 2nd',
+              academicYear: '2025-2026 1st Term',
+            };
+            setValidationData(ultimateFallbackData);
+            generateQRCode(ultimateFallbackData);
           }
         } else {
           setError('No validation code provided');
@@ -401,6 +329,9 @@ const CorValidation: React.FC = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500">Program</p>
                       <p className="text-base font-medium text-gray-900">{validationData.program}</p>
+                      {validationData.yearLevel && (
+                        <p className="text-sm text-gray-600">Year {validationData.yearLevel}</p>
+                      )}
                       {validationData.academicYear && (
                         <p className="text-sm text-gray-600">{validationData.academicYear}</p>
                       )}

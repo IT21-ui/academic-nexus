@@ -38,6 +38,7 @@ export const userApi = {
     first_name: string;
     last_name: string;
     email: string;
+    phone?: string;
     role: UserRole;
     password?: string;
     status?: "pending" | "approved" | "denied";

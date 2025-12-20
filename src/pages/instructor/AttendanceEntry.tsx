@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import studentsApi from "@/services/teacher-api/studentsApi";
 import attendanceApi from "@/services/teacher-api/attendanceApi";
 import { yearLevels } from "@/lib/contants";
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 type AttendanceStatus = "present" | "absent" | "late";
 type AttendanceValue = AttendanceStatus | null;
@@ -388,14 +389,7 @@ const AttendanceEntry: React.FC = () => {
               ) : null}
 
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="py-10">
-                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Loading...</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <TableSkeleton />
               ) : null}
 
               {!loading &&

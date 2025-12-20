@@ -5,6 +5,8 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import api from '@/services/apiClient';
+import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
+
 import { BookOpen, Users, FileSpreadsheet, ClipboardCheck, Calendar, GraduationCap } from 'lucide-react';
 
 const InstructorDashboard: React.FC = () => {
@@ -133,11 +135,7 @@ const InstructorDashboard: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading dashboard...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -151,7 +149,7 @@ const InstructorDashboard: React.FC = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold">{`${user?.first_name} ${user?.last_name}`}</h2>
-              <p className="text-primary-foreground/80">Instructor ID: IN{String(user?.id || '').padStart(2, '0')}</p>
+              <p className="text-primary-foreground/80">Instructor ID: {user?.formatted_id || `IN${String(user?.id || '').padStart(2, '0')}`}</p>
               <p className="text-primary-foreground/80">{teacherData?.department?.name?.toUpperCase() || user?.department?.name?.toUpperCase() || 'DEPARTMENT'}</p>
             </div>
           </div>

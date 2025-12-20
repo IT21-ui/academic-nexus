@@ -6,6 +6,16 @@ import { BookOpen, Clock, MapPin, User, Menu, Minimize, X } from "lucide-react";
 import type { Class } from "@/types/models";
 import { generateCorPdf } from "@/utils/corGenerator";
 import api from '@/services/apiClient';
+import { CardSkeleton } from '@/components/ui/SkeletonLoader';
+
+const getOrdinalSuffix = (num: number): string => {
+  const j = num % 10;
+  const k = num % 100;
+  if (j === 1 && k !== 11) return 'st';
+  if (j === 2 && k !== 12) return 'nd';
+  if (j === 3 && k !== 13) return 'rd';
+  return 'th';
+};
 
 const Subjects: React.FC = () => {
   const { user } = useAuth();
@@ -14,34 +24,32 @@ const Subjects: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
 
-  // Function to get enrollment date from class data
   const getEnrollmentDate = (): string => {
-    // Since Class type doesn't have created_at or enrollment_date properties,
-    // we'll return the specific enrollment date for now
-    // TODO: Add enrollment date to Class interface or fetch from separate API
-    
-    if (classes.length > 0) {
-      // For now, return a specific enrollment date since we don't have the actual field
-      // In the future, you might want to:
-      // 1. Add created_at/enrollment_date to the Class interface
-      // 2. Fetch enrollment date from a separate API call
-      // 3. Pass enrollment date separately in the component props
-      return '12/17/2025';
+    // Use the student's created_at date as the enrollment date
+    if (user?.created_at) {
+      return new Date(user.created_at).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     }
     
-    // Fallback to current date if no classes
+    // Fallback to current date if student created_at is not available
     return new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
   };
 
-  // Handle COR generation with actual enrollment date
   const handleGenerateCor = () => {
     const enrollmentDate = getEnrollmentDate();
+    
+    // Get program from user's department
+    let program = 'Unknown Program';
+    if (user?.department?.name) {
+      // Extract year level from user data if available
+      const yearLevel = user?.year_level ? `${user.year_level}${getOrdinalSuffix(user.year_level)}` : '';
+      program = `${user.department.name}${yearLevel ? ' ' + yearLevel : ''}`;
+    }
     
     generateCorPdf({
       user,
       classes,
       academicYear: '2025-2026 1st Term',
-      program: 'BSIT 2nd',
+      program,
       registrarName: 'Grace B. Valde',
       registrarTitle: 'College Registrar',
       dateEnrolled: enrollmentDate,
@@ -75,8 +83,7 @@ const Subjects: React.FC = () => {
 
         setClasses(enrolled);
       } catch (error: any) {
-        console.error("Error fetching classes data:", error);
-        setError("Failed to load classes. Please try again.");
+                setError("Failed to load classes. Please try again.");
         setClasses([]);
       } finally {
         setLoading(false);
@@ -113,8 +120,43 @@ const Subjects: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading classes...</div>
+      <div className="p-4 space-y-4">
+        <Card
+          className="overflow-hidden border-0 shadow-lg"
+        >
+          <div className="gradient-sidebar text-white px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 bg-white/20 rounded animate-pulse"></div>
+              <div className="h-6 w-24 bg-white/20 rounded animate-pulse"></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 bg-white/20 rounded animate-pulse"></div>
+              <div className="w-5 h-5 bg-white/20 rounded animate-pulse"></div>
+            </div>
+          </div>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="border-b border-gray-200 pb-3 last:border-b-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-5 h-5 bg-muted rounded animate-pulse"></div>
+                    <div className="h-5 w-32 bg-muted rounded animate-pulse"></div>
+                  </div>
+                  <div className="ml-7 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                      <div className="h-4 w-48 bg-muted rounded animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-7 mt-2">
+                    <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                    <div className="h-4 w-32 bg-muted rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

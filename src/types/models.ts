@@ -4,6 +4,7 @@ export type UserRole = "student" | "instructor" | "admin" | "administrator";
 
 export interface User {
   id: number;
+  formatted_id?: string;
   first_name: string;
   last_name: string;
   email: string;

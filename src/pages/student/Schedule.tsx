@@ -5,6 +5,7 @@ import classApi from "@/services/classApi";
 import { Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Class } from "@/types/models";
+import { CardSkeleton } from '@/components/ui/SkeletonLoader';
 
 const Schedule: React.FC = () => {
   const { user } = useAuth();
@@ -26,26 +27,18 @@ const Schedule: React.FC = () => {
 
         do {
           const res = await classApi.getClasses(page, 50, "");
-          console.log(`Student Schedule - Page ${page} API Response:`, res);
-          console.log(`Student Schedule - Page ${page} Response data:`, res.data);
           allClasses.push(...(res.data || []));
           lastPage = res.last_page || 1;
           page += 1;
         } while (page <= lastPage);
 
-        console.log('Student Schedule - All classes:', allClasses);
 
-        // If user is an instructor, show their classes; if student, show enrolled classes
-        const relevantClasses = user?.role === 'instructor' 
-          ? allClasses.filter((c) => c.teacher?.id === user.id)
-          : allClasses.filter((c) =>
-              (c.students || []).some((s) => s.id === user.id)
-            );
+        const relevantClasses = allClasses.filter((c) => {
+          return (c.students || []).some((s) => s.id === user.id);
+        });
 
-        console.log('Student Schedule - Relevant classes:', relevantClasses);
         setSchedule(relevantClasses);
       } catch (error: any) {
-        console.error("Failed to fetch schedule:", error);
         setError("Failed to load schedule");
       } finally {
         setLoading(false);
@@ -62,8 +55,16 @@ const Schedule: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading schedule...</div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Class Schedule</h1>
+          <p className="text-muted-foreground">Weekly class timetable</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <CardSkeleton key={index} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -200,7 +201,6 @@ const Schedule: React.FC = () => {
   );
 };
 
-// Helper functions
 const getDayName = (dayNumber: number): string => {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   return days[dayNumber - 1] || "Unknown";

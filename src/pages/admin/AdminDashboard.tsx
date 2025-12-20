@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -6,14 +6,13 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  mockStudents,
-  mockTeachers,
-  mockDepartments,
-  mockPendingRegistrations,
-  mockSubjects,
-  getTeacherFullName,
-} from "@/data/mockData";
+import { DashboardSkeleton } from "@/components/ui/SkeletonLoader";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import userApi from "@/services/userApi";
+import departmentApi from "@/services/departmentApi";
+import subjectApi from "@/services/subjectApi";
+import type { Department, RegistrationRequest } from "@/types/models";
 import {
   Users,
   BookOpen,
@@ -30,6 +29,17 @@ import {
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [studentCount, setStudentCount] = useState(0);
+  const [teacherCount, setTeacherCount] = useState(0);
+  const [subjectCount, setSubjectCount] = useState(0);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<RegistrationRequest[]>([]);
+  const [actionUserId, setActionUserId] = useState<number | null>(null);
 
   const quickActions = [
     { icon: UserPlus, label: "Add User", onClick: () => navigate("/users") },
@@ -41,19 +51,116 @@ const AdminDashboard: React.FC = () => {
     },
     {
       icon: Building,
-      label: "Departments",
-      onClick: () => navigate("/departments"),
+      label: "Programs",
+      onClick: () => navigate("/programs"),
     },
   ];
 
-  // Find department head name
-  const getDepartmentHeadName = (dept: (typeof mockDepartments)[0]) => {
-    if (dept.head_id) {
-      const head = mockTeachers.find((t) => t.id === dept.head_id);
-      return head ? getTeacherFullName(head) : "Not Assigned";
+  const getProgramHeadName = (dept: Department) => {
+    if (dept.head && dept.head.first_name && dept.head.last_name) {
+      return `${dept.head.first_name} ${dept.head.last_name}`;
     }
+
     return "Not Assigned";
   };
+
+  const handleApprove = async (request: RegistrationRequest) => {
+    try {
+      setActionUserId(request.id);
+      await userApi.approveRegistrationRequest(request.id);
+
+      setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+
+      queryClient.invalidateQueries({ queryKey: ["registration-requests"] });
+
+      toast({
+        title: "User approved",
+        description: `${request.first_name} ${request.last_name} has been approved.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error approving user",
+        description: "There was a problem approving this registration.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionUserId(null);
+    }
+  };
+
+  const handleDeny = async (request: RegistrationRequest) => {
+    try {
+      setActionUserId(request.id);
+      await userApi.rejectRegistrationRequest(request.id);
+
+      setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+
+      queryClient.invalidateQueries({ queryKey: ["registration-requests"] });
+
+      toast({
+        title: "User denied",
+        description: `${request.first_name} ${request.last_name} has been denied.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error denying user",
+        description: "There was a problem denying this registration.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionUserId(null);
+    }
+  };
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [studentsRes, teachersRes] = await Promise.all([
+          userApi.getStudents(1, 1),
+          userApi.getTeachers(1, 1),
+        ]);
+
+        setStudentCount(studentsRes.total || 0);
+        setTeacherCount(teachersRes.total || 0);
+
+        const subjectsRes = await subjectApi.getSubjects(1, 1);
+        setSubjectCount(subjectsRes.total || (subjectsRes.data?.length ?? 0));
+
+        const departmentsRes = await departmentApi.getDepartments(1, 100);
+        setDepartments(departmentsRes.data || []);
+
+        const pendingRes = await userApi.getRegistrationRequests("pending", 1, 10);
+        setPendingRequests(pendingRes?.data || []);
+      } catch (err: any) {
+        setError("Failed to load admin dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {user?.first_name}</p>
+        </div>
+        <Card>
+          <CardContent className="p-6 text-center text-red-500">{error}</CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -79,26 +186,25 @@ const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Students"
-          value={mockStudents.length * 100}
+          value={studentCount}
           icon={Users}
           variant="primary"
-          trend={{ value: 12, isPositive: true }}
         />
         <StatCard
           title="Total Instructors"
-          value={mockTeachers.length * 10}
+          value={teacherCount}
           icon={GraduationCap}
           variant="secondary"
         />
         <StatCard
           title="Active Subjects"
-          value={mockSubjects.length * 20}
+          value={subjectCount}
           icon={BookOpen}
           variant="accent"
         />
         <StatCard
-          title="Departments"
-          value={mockDepartments.length}
+          title="Programs"
+          value={departments.length}
           icon={Building}
         />
       </div>
@@ -111,11 +217,11 @@ const AdminDashboard: React.FC = () => {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Pending User Approvals</CardTitle>
               <Badge variant="secondary">
-                {mockPendingRegistrations.length} pending
+                {pendingRequests.length} pending
               </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
-              {mockPendingRegistrations.map((request) => (
+              {pendingRequests.map((request) => (
                 <div
                   key={request.id}
                   className="flex items-center justify-between p-4 rounded-lg border border-border"
@@ -137,17 +243,37 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="success" className="gap-1">
-                      <Check className="w-4 h-4" />
-                      Approve
+                    <Button
+                      size="sm"
+                      variant="success"
+                      className="gap-1"
+                      onClick={() => handleApprove(request)}
+                      disabled={actionUserId === request.id}
+                    >
+                      {actionUserId === request.id ? (
+                        <span className="text-xs">Approving...</span>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Approve
+                        </>
+                      )}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       className="gap-1 text-destructive hover:text-destructive"
+                      onClick={() => handleDeny(request)}
+                      disabled={actionUserId === request.id}
                     >
-                      <X className="w-4 h-4" />
-                      Deny
+                      {actionUserId === request.id ? (
+                        <span className="text-xs">Denying...</span>
+                      ) : (
+                        <>
+                          <X className="w-4 h-4" />
+                          Deny
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -155,18 +281,18 @@ const AdminDashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Department Overview */}
+          {/* Program Overview */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Department Overview</CardTitle>
+              <CardTitle className="text-lg">Program Overview</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mockDepartments.map((dept) => (
+                {departments.map((dept) => (
                   <div
                     key={dept.id}
                     className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                    onClick={() => navigate("/departments")}
+                    onClick={() => navigate("/programs")}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold text-foreground">
@@ -175,7 +301,7 @@ const AdminDashboard: React.FC = () => {
                       <Badge variant="secondary">{dept.code}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Head: {getDepartmentHeadName(dept)}
+                      Head: {getProgramHeadName(dept)}
                     </p>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="flex items-center gap-1 text-muted-foreground">
@@ -196,38 +322,11 @@ const AdminDashboard: React.FC = () => {
 
         <div className="space-y-6">
           <QuickActions actions={quickActions} title="Admin Actions" />
-
-          {/* System Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">System Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[
-                { label: "Database", status: "Operational" },
-                { label: "Authentication", status: "Operational" },
-                { label: "File Storage", status: "Operational" },
-                { label: "Email Service", status: "Operational" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-sm text-muted-foreground">
-                    {item.label}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                    <span className="text-sm text-success">{item.status}</span>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
   );
-};
+}
+;
 
 export default AdminDashboard;

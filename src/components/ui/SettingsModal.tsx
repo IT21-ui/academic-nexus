@@ -74,7 +74,6 @@ export const SettingsModal: React.FC = () => {
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Key },
   ];
 
@@ -220,68 +219,13 @@ export const SettingsModal: React.FC = () => {
         </Label>
         <Input
           id="userId"
-          value={user?.id ? `${
-            user?.role === 'admin' || user?.role === 'administrator' ? 'AD' : 
-            user?.role === 'instructor' ? 'IN' : 'ST'
-          }${user.id.toString().padStart(3, '0')}` : ''}
+          value={user?.id ? (user.formatted_id || user.id.toString().padStart(3, '0')) : ''}
           disabled
           className="bg-muted"
         />
       </div>
     </div>
   );
-
-  const renderNotificationsTab = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium">Email Notifications</p>
-          <p className="text-sm text-muted-foreground">Receive notifications via email</p>
-        </div>
-        <Switch
-          checked={formData.notifications.email}
-          onCheckedChange={(checked) => handleNotificationChange('email', checked)}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium">Push Notifications</p>
-          <p className="text-sm text-muted-foreground">Receive browser push notifications</p>
-        </div>
-        <Switch
-          checked={formData.notifications.push}
-          onCheckedChange={(checked) => handleNotificationChange('push', checked)}
-        />
-      </div>
-      <div className="border-t pt-4">
-        <p className="font-medium mb-3">Notification Types</p>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span>Grade Updates</span>
-            <Switch
-              checked={formData.notifications.grades}
-              onCheckedChange={(checked) => handleNotificationChange('grades', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Attendance Updates</span>
-            <Switch
-              checked={formData.notifications.attendance}
-              onCheckedChange={(checked) => handleNotificationChange('attendance', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Schedule Changes</span>
-            <Switch
-              checked={formData.notifications.schedule}
-              onCheckedChange={(checked) => handleNotificationChange('schedule', checked)}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
 
   const renderSecurityTab = () => (
     <div className="space-y-6">
@@ -345,8 +289,6 @@ export const SettingsModal: React.FC = () => {
     switch (activeTab) {
       case 'profile':
         return renderProfileTab();
-      case 'notifications':
-        return renderNotificationsTab();
       case 'security':
         return renderSecurityTab();
       default:

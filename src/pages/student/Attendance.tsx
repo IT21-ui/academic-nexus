@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/apiClient';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 const Attendance: React.FC = () => {
   const { user } = useAuth();
@@ -16,24 +17,18 @@ const Attendance: React.FC = () => {
     const fetchAttendanceData = async () => {
       if (!user?.id) return;
       
-      // Backend expects numeric user ID, not ST prefixed string
       const numericStudentId = user.id;
       
       try {
         setLoading(true);
         
         const attendanceRes = await api.get(`/api/students/${numericStudentId}/attendances`);
-        // Backend returns paginated data, extract the actual attendance records
         setAttendance(attendanceRes.data.data || []);
       } catch (error) {
-        console.error('Error fetching attendance data:', error);
-        // Check if it's a 404 error (API endpoint doesn't exist yet)
         if (error.response?.status === 404) {
-          console.log('Attendance API endpoint not available yet - showing empty state');
-          setAttendance([]); // Set empty array to show "No attendance records found"
+          setAttendance([]);
         } else {
-          console.error('Unexpected error:', error);
-          setAttendance([]); // Set empty array as fallback
+          setAttendance([]);
         }
       } finally {
         setLoading(false);
@@ -77,8 +72,30 @@ const Attendance: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading attendance...</div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Attendance Record</h1>
+          <p className="text-muted-foreground">Track your class attendance history</p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Card key={index}>
+              <CardContent className="p-6 text-center">
+                <div className="h-8 w-8 bg-muted rounded-full mx-auto mb-2 animate-pulse"></div>
+                <div className="h-8 bg-muted rounded mb-2 animate-pulse"></div>
+                <div className="h-4 bg-muted rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Attendance History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TableSkeleton />
+          </CardContent>
+        </Card>
       </div>
     );
   }
